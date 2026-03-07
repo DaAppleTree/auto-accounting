@@ -35,10 +35,7 @@ public class Ledger {
         return cat;
     }
 
-    /**
-     * Add HST receivable/payable accounts if they are missing.
-     * Called after loading from file to guarantee they exist.
-     */
+    // add the HST accounts
     private void ensureHstAccounts() {
         if (!accountsByName.containsKey("HST Receivable")) {
             LedgerAccount assetCat = getOrCreateAbstractAccount("Asset", "Asset", null);
@@ -50,9 +47,7 @@ public class Ledger {
         }
     }
 
-    /**
-     * Find or create an abstract (no-ID) account with given name and type, under optional parent.
-     */
+    // constructor to create an abstract (no-ID) account with given name and type, under optional parent.
     public LedgerAccount getOrCreateAbstractAccount(String name, String type, LedgerAccount parent) {
         LedgerAccount existing = accountsByName.get(name);
         if (existing != null) {
@@ -109,6 +104,13 @@ public class Ledger {
         // also if this account has a parent, register under it
         if (account.getParent() != null) {
             account.getParent().addSubaccount(account);
+        } else {
+            // attach unparented leaf accounts to their type root so tree traversal
+            // can recursively aggregate balances by major category.
+            LedgerAccount typeRoot = accountsByName.get(account.getType());
+            if (typeRoot != null && typeRoot.getId() <= 0) {
+                typeRoot.addSubaccount(account);
+            }
         }
         saveToFile();
     }
@@ -156,7 +158,7 @@ public class Ledger {
             // not numeric; fall through to name search
         }
         
-        // if not numeric or numeric search returned nothing, try name starts-with
+        // if not numeric or numeric search returned nothing, try searching for the name
         List<LedgerAccount> matches = new ArrayList<>();
         String lower = prefix.toLowerCase();
         for (LedgerAccount acc : sortedAccounts) {
@@ -278,6 +280,35 @@ public class Ledger {
         }
     }
 
+    // recursive traversal helper for tree totals
+    private double sumBalancesRecursive(LedgerAccount node) {
+        if (node == null) {
+            return 0;
+        }
+        double total = 0;
+        if (node.getId() > 0) {
+            total += node.getBalance();
+        }
+        for (LedgerAccount child : node.getSubaccounts()) {
+            total += sumBalancesRecursive(child);
+        }
+        return total;
+    }
+
+    // total by any node name (root type, subtype, or leaf)
+    public double getRecursiveTotalByName(String accountName) {
+        LedgerAccount node = accountsByName.get(accountName);
+        if (node == null) {
+            return 0;
+        }
+        return sumBalancesRecursive(node);
+    }
+
+    // convenience totals for main types
+    public double getTypeTotal(String type) {
+        return getRecursiveTotalByName(type);
+    }
+
     /**
      * Represents a balance at a particular date, used for graphing history.
      */
@@ -290,12 +321,7 @@ public class Ledger {
         }
     }
 
-    /**
-     * Compute the running balance history for the account with the given ID, based
-     * on all transactions in the supplied journal.  The list is ordered by date
-     * (earliest first).  If the account does not exist or has no affecting
-     * transactions, an empty list is returned.
-     */
+     // compute the running balance history for the account with the given ID, based on all transactions in the journal. 
     public List<BalancePoint> getBalanceHistory(int accountId, Journal journal) {
         LedgerAccount base = accountsById.get(accountId);
         if (base == null) {
@@ -381,7 +407,7 @@ public class Ledger {
         return accountsById.size();
     }
 
-    // persistence helpers
+    // reading and writing from the files
     private void saveToFile() {
         try (java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.FileWriter(ACCOUNT_FILE))) {
             for (LedgerAccount acc : accountsByName.values()) {

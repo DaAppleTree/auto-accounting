@@ -153,7 +153,6 @@ public class TransactionPage extends JPanel {
 
         // RIGHT SIDE - Input Panel with Binary Search
         JPanel rightPanel = new JPanel(new BorderLayout());
-        // match ledger page ratio by fixing width to 350
         rightPanel.setPreferredSize(new Dimension(350, 600));
         
         // no toggle button; form always visible
@@ -278,8 +277,7 @@ public class TransactionPage extends JPanel {
 
 
     private void updateSelectedLabels() {
-        // Account text fields already display selected accounts; keep this hook
-        // only to refresh dependent HST/remittance UI.
+        // refresh dependent HST/remittance UI.
         updateHstFields();
     }
 
@@ -427,7 +425,7 @@ public class TransactionPage extends JPanel {
                         continue;
                     if (!isDebit && selectedDebitAccount != null && selectedDebitAccount.getId() == acc.getId())
                         continue;
-                    // only show id, name and type – omit balance/amount
+                    // only show id, name and type and omit balance/amount
                     listModel.addElement(String.format("%d | %-20s | %-8s", 
                             acc.getId(), acc.getName(), acc.getType()));
                 }
@@ -643,7 +641,7 @@ public class TransactionPage extends JPanel {
                     ));
                 }
             }
-            // build confirmation message with HST breakdown if needed
+            //  confirmation message
             StringBuilder msg = new StringBuilder("Transaction recorded!\n\n");
             msg.append("Date: ").append(selectedDate).append("\n");
             msg.append("Description: ").append(description).append("\n");
@@ -717,9 +715,7 @@ public class TransactionPage extends JPanel {
             setOpaque(true);
         }
         @Override
-        public Component getTableCellRendererComponent(JTable table, Object value,
-                                                       boolean isSelected, boolean hasFocus,
-                                                       int row, int column) {
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
             setText(value == null ? "" : value.toString());
             setSize(table.getColumnModel().getColumn(column).getWidth(), Short.MAX_VALUE);
             int height = getPreferredSize().height;

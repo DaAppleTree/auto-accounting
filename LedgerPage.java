@@ -434,10 +434,30 @@ public class LedgerPage extends JPanel {
             long equity = accounts.stream().filter(a -> a.getType().equals("Equity")).count();
             long revenue = accounts.stream().filter(a -> a.getType().equals("Revenue")).count();
             long expenses = accounts.stream().filter(a -> a.getType().equals("Expense")).count();
-            summaryLabel.setText(String.format("Total: %d  Assets:%d Liabilities:%d Equity:%d Revenue:%d Expenses:%d",
-                    accounts.size(), assets, liabilities, equity, revenue, expenses));
+
+            double currentAssetsTotal = ledger.getRecursiveTotalByName("Current Asset");
+            double fixedAssetsTotal = ledger.getRecursiveTotalByName("Fixed Asset");
+            double currentLiabilitiesTotal = ledger.getRecursiveTotalByName("Current Liability");
+            double longTermLiabilitiesTotal = ledger.getRecursiveTotalByName("Long-Term Liability");
+
+            summaryLabel.setText(String.format(
+                "<html>Total: %d  Assets:%d Liabilities:%d Equity:%d Revenue:%d Expenses:%d"
+                + "<br/>Current Assets:%s  Fixed Assets:%s  Current Liabilities:%s  Long-Term Liabilities:%s</html>",
+                accounts.size(), assets, liabilities, equity, revenue, expenses,
+                formatMoney(currentAssetsTotal),
+                formatMoney(fixedAssetsTotal),
+                formatMoney(currentLiabilitiesTotal),
+                formatMoney(longTermLiabilitiesTotal)
+            ));
         }
         updateRowActionButtonsVisibility();
+    }
+
+    private String formatMoney(double value) {
+        if (value < 0) {
+            return String.format("-$%.2f", Math.abs(value));
+        }
+        return String.format("$%.2f", value);
     }
 
     private LinkedHashMap<String, LinkedHashMap<String, List<LedgerAccount>>> buildGroupedAccounts(List<LedgerAccount> accounts) {

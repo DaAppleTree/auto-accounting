@@ -13,6 +13,7 @@ public class ReportsPage extends JPanel {
         this.journal = journal;
         this.ledger = ledger;
         this.records = new ArrayList<>();
+        
         // polymorphism: store different record types together
         records.add(new IncomeStatement(ledger));
         records.add(new BalanceSheet(ledger));

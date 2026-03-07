@@ -10,9 +10,9 @@ public class Journal {
     private TransactionList allTransactions;
     private HashMap<YearMonth, TransactionList> monthlyTransactions;
 
-    // Constructor - creates empty journal
     private static final String TRANSACTION_FILE = "transactions.csv";
 
+    // constructor for an empty journal
     public Journal() {
         allTransactions = new TransactionList();
         monthlyTransactions = new HashMap<>();
@@ -38,9 +38,7 @@ public class Journal {
         saveToFile();
     }
 
-    /**
-     * Gets transaction at specific index (oldest to newest)
-     */
+    // gets transaction at specific index (oldest to newest)
     public Transaction getTransaction(int index) {
         if (index < 0 || index >= size()) {
             return null;
@@ -102,11 +100,7 @@ public class Journal {
         return removed;
     }
 
-    // ========== DATE-BASED QUERIES ==========
-
-    /**
-     * Gets all transactions on a specific date
-     */
+    // gets transactions on a specific date
     public Journal getTransactionsByDate(LocalDate date) {
         Journal result = new Journal();
 
@@ -126,9 +120,7 @@ public class Journal {
         return result;
     }
 
-    /**
-     * Gets transactions within a date range
-     */
+    // gets transactions within a date range
     public Journal getTransactionsInRange(LocalDate start, LocalDate end) {
         Journal result = new Journal();
 
