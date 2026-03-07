@@ -1,56 +1,71 @@
+
 public class LedgerAccount {
-    
-    // variable declaration
-    private int id;
+    private int id; // <=0 for abstract/accounts without ID
     private String name;
     private String type;
     private double debitTotal;
     private double creditTotal;
+    private LedgerAccount parent;        
+    private java.util.List<LedgerAccount> subaccounts;
 
-    // constructor
+    // constructor for leaf accounts with ID
     public LedgerAccount(int id, String name, String type) {
+        this(id, name, type, null);
+    }
+
+    // constructor allowing parent (for subcategories)
+    public LedgerAccount(int id, String name, String type, LedgerAccount parent) {
         this.id = id;
         this.name = name;
         this.type = type;
         this.debitTotal = 0;
         this.creditTotal = 0;
+        this.parent = parent;
+        this.subaccounts = new java.util.ArrayList<>();
+        if (parent != null) {
+            parent.addSubaccount(this);
+        }
     }
 
-    // accessor and modifier methods
-    public int getId() {
-        return id;
+    // constructor for abstract nodes without ID
+    public LedgerAccount(String name, String type) {
+        this(0, name, type, null);
     }
 
-    public void setId(int id) {
-        this.id = id;
+    // Getters and setters
+    public int getId() { return id; }
+    public void setId(int id) { this.id = id; }
+    
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    
+    public String getType() { return type; }
+    public void setType(String type) { this.type = type; }
+    
+    public double getDebitTotal() { return debitTotal; }
+    public double getCreditTotal() { return creditTotal; }
+
+    public LedgerAccount getParent() { return parent; }
+    public void setParent(LedgerAccount parent) { this.parent = parent; }
+
+    public java.util.List<LedgerAccount> getSubaccounts() {
+        return subaccounts;
     }
 
-    public String getName() {
-        return name;
+    public void addSubaccount(LedgerAccount child) {
+        if (child != null && !subaccounts.contains(child)) {
+            subaccounts.add(child);
+            child.parent = this;
+        }
     }
 
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
-    }
-
-    // methods to posting debits and credits 
     public void postDebit(double debit) {
-        // ensure debit is postive
         if (debit > 0) {
             this.debitTotal += debit;
         }
     }
 
     public void postCredit(double credit) {
-        // ensure credit is postive
         if (credit > 0) {
             this.creditTotal += credit;
         }
@@ -61,7 +76,6 @@ public class LedgerAccount {
         this.creditTotal = 0;
     }
 
-    // returns the current balance based on account type
     public double getBalance() {
         if (getNormalSide().equals("debit")) {
             return this.debitTotal - this.creditTotal;
@@ -70,15 +84,11 @@ public class LedgerAccount {
         }
     }
 
-    // determines normal side for this account type
     public String getNormalSide() {
         switch (type.toLowerCase()) {
-            // in accounting, assets and expenses have debit normal
             case "asset":
             case "expense":
                 return "debit";
-
-            // in accounting, liabilities, equity, and revenues have credit normal
             case "liability":
             case "equity":
             case "revenue":
@@ -88,8 +98,8 @@ public class LedgerAccount {
         }
     }
 
-    // string representation
     public String toString() {
-        return "ID: " + id + " | Name: " + name + " | Type: " + type + " | DR: " + debitTotal + " | CR: " + creditTotal + " | Balance: " + getBalance() + " (" + getNormalSide() + ")";
+        return String.format("ID: %d | Name: %s | Type: %s | DR: %.2f | CR: %.2f | Balance: %.2f (%s)",
+                           id, name, type, debitTotal, creditTotal, getBalance(), getNormalSide());
     }
 }
