@@ -1,14 +1,15 @@
+// class for creating a transaction linked list
 public class TransactionList{
     private Transaction root;
     private int size;
 
+    // constructor for a transaction list
     public TransactionList() {
         this.root = null;
         this.size = 0;
     }
 
     public Transaction getRoot() {return root;}
-    public void setRoot(Transaction root) {this.root = root;}
     
     public int getSize() {return size;}
 
@@ -65,6 +66,7 @@ public class TransactionList{
         }
     }
 
+    // converts linked list to a list
     public java.util.List<Transaction> toList() {
         java.util.List<Transaction> list = new java.util.ArrayList<>();
         Transaction current = root;
@@ -75,6 +77,7 @@ public class TransactionList{
         return list;
     }
 
+    // clears current input or stored data
     public void clear() {
         root = null;
         size = 0;

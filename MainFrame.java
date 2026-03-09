@@ -1,14 +1,19 @@
 import java.awt.*;
 import javax.swing.*;
 
+// class for creating the mainframe
 public class MainFrame extends JFrame {
-    private CardLayout contentLayout;
-    private JPanel contentPanel;
-    private Ledger ledger;
-    private Journal journal;
+    private static final Color SIDEBAR_BACKGROUND = new Color(240, 240, 240);
+    private static final Color NAV_BUTTON_BACKGROUND = new Color(200, 214, 201);
 
+    private final CardLayout contentLayout;
+    private final JPanel contentPanel;
+    private final Ledger ledger;
+    private final Journal journal;
+
+    // constructor for the mainframe
     public MainFrame() {
-        setTitle("Accounting System");
+        setTitle("AutoAccountant");
         setSize(1200, 700);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
@@ -16,10 +21,11 @@ public class MainFrame extends JFrame {
 
         ledger = new Ledger();
         journal = new Journal();
+
         // rebuild ledger balances from any loaded transactions
         ledger.updateFromJournal(journal);
 
-        // if key sample accounts are missing, populate defaults
+        // create default accounts
         if (ledger.getAccountByName("Cash") == null) {
             LedgerAccount assetCat = ledger.getOrCreateAbstractAccount("Asset", "Asset", null);
             LedgerAccount liabilityCat = ledger.getOrCreateAbstractAccount("Liability", "Liability", null);
@@ -29,48 +35,47 @@ public class MainFrame extends JFrame {
 
             ledger.addAccount(new LedgerAccount(101, "Cash", "Asset", assetCat));
             ledger.addAccount(new LedgerAccount(102, "Accounts Receivable", "Asset", assetCat));
-            ledger.addAccount(new LedgerAccount(103, "Supplies", "Asset", assetCat));
             ledger.addAccount(new LedgerAccount(201, "Accounts Payable", "Liability", liabilityCat));
             ledger.addAccount(new LedgerAccount(301, "Owner's Equity", "Equity", equityCat));
-            ledger.addAccount(new LedgerAccount(401, "Service Revenue", "Revenue", revenueCat));
-            ledger.addAccount(new LedgerAccount(501, "Rent Expense", "Expense", expenseCat));
-            ledger.addAccount(new LedgerAccount(502, "Utilities Expense", "Expense", expenseCat));
-            // ensure HST accounts exist as well (Ledger constructor already does this but safe)
-            ledger.addAccount(new LedgerAccount(701, "HST Receivable", "Asset", assetCat));
+            ledger.addAccount(new LedgerAccount(701, "HST Recoverable", "Asset", assetCat));
             ledger.addAccount(new LedgerAccount(702, "HST Payable", "Liability", liabilityCat));
         }
 
-        // Sidebar
+        // adds a sidebar
         add(createSidebar(), BorderLayout.WEST);
 
-        // Content Panel
+        // adds a content Panel
         contentLayout = new CardLayout();
         contentPanel = new JPanel(contentLayout);
-        LedgerPage ledgerPage = new LedgerPage(ledger, journal);
-        contentPanel.add(new TransactionPage(journal, ledger, ledgerPage), "TRANSACTIONS");
+        LedgerPage ledgerPage = new LedgerPage(journal, ledger);
+        TransactionPage transactionPage = new TransactionPage(journal, ledger, ledgerPage);
+        ReportsPage reportsPage = new ReportsPage(journal, ledger);
+        ledgerPage.setJournalRefreshAction(transactionPage::refreshJournalDisplay);
+        contentPanel.add(transactionPage, "JOURNAL");
         contentPanel.add(ledgerPage, "LEDGER");
-        contentPanel.add(new ReportsPage(journal, ledger), "REPORTS");
+        contentPanel.add(reportsPage, "REPORTS");
         
         add(contentPanel, BorderLayout.CENTER);
         
-        contentLayout.show(contentPanel, "TRANSACTIONS");
+        contentLayout.show(contentPanel, "JOURNAL");
     }
 
+    // creates sidebar used by this screen
     private JPanel createSidebar() {
         JPanel sidebar = new JPanel();
         sidebar.setPreferredSize(new Dimension(200, 700));
-        sidebar.setBackground(new Color(240, 240, 240));
+        sidebar.setBackground(SIDEBAR_BACKGROUND);
         sidebar.setLayout(new GridLayout(6, 1, 5, 5));
         
-        JButton txBtn = new JButton("Transactions");
+        JButton txBtn = new JButton("Journal");
         JButton ledgerBtn = new JButton("Ledger");
-        JButton reportsBtn = new JButton("Records");
+        JButton reportsBtn = new JButton("Reports");
 
         styleNavButton(txBtn);
         styleNavButton(ledgerBtn);
         styleNavButton(reportsBtn);
         
-        txBtn.addActionListener(e -> contentLayout.show(contentPanel, "TRANSACTIONS"));
+        txBtn.addActionListener(e -> contentLayout.show(contentPanel, "JOURNAL"));
         ledgerBtn.addActionListener(e -> contentLayout.show(contentPanel, "LEDGER"));
         reportsBtn.addActionListener(e -> contentLayout.show(contentPanel, "REPORTS"));
         
@@ -81,14 +86,18 @@ public class MainFrame extends JFrame {
         return sidebar;
     }
 
+    // handles style navigation button behavior for mainframe
     private void styleNavButton(JButton button) {
-        button.setBackground(new Color(46, 125, 50));
-        button.setForeground(Color.WHITE);
+        button.setBackground(NAV_BUTTON_BACKGROUND);
+        button.setForeground(new Color(45, 60, 45));
+        button.setFont(new Font("Georgia", Font.BOLD, 18));
+        button.setMargin(new Insets(12, 8, 12, 8));
         button.setFocusPainted(false);
         button.setOpaque(true);
         button.setBorderPainted(false);
     }
 
+    // main method for running the program
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             new MainFrame().setVisible(true);

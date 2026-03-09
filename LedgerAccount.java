@@ -1,6 +1,7 @@
 
+// ledgeraccount manages this part of the accounting application.
 public class LedgerAccount {
-    private int id; // <=0 for abstract/accounts without ID
+    private int id; // 0 for abstract accounts without ID
     private String name;
     private String type;
     private double debitTotal;
@@ -8,12 +9,12 @@ public class LedgerAccount {
     private LedgerAccount parent;        
     private java.util.List<LedgerAccount> subaccounts;
 
-    // constructor for leaf accounts with ID
+    // constructor for leaf accounts
     public LedgerAccount(int id, String name, String type) {
         this(id, name, type, null);
     }
 
-    // constructor allowing parent (for subcategories)
+    // constructor for accounts with parent
     public LedgerAccount(int id, String name, String type, LedgerAccount parent) {
         this.id = id;
         this.name = name;
@@ -32,50 +33,60 @@ public class LedgerAccount {
         this(0, name, type, null);
     }
 
-    // Getters and setters
+    // accessor and modifier methods
     public int getId() { return id; }
-    public void setId(int id) { this.id = id; }
-    
     public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-    
     public String getType() { return type; }
-    public void setType(String type) { this.type = type; }
-    
     public double getDebitTotal() { return debitTotal; }
     public double getCreditTotal() { return creditTotal; }
 
     public LedgerAccount getParent() { return parent; }
     public void setParent(LedgerAccount parent) { this.parent = parent; }
 
+    // returns subaccounts
     public java.util.List<LedgerAccount> getSubaccounts() {
         return subaccounts;
     }
 
+    // adds subaccount to the current state
     public void addSubaccount(LedgerAccount child) {
-        if (child != null && !subaccounts.contains(child)) {
+        if (child != null && child != this && !subaccounts.contains(child)) {
             subaccounts.add(child);
             child.parent = this;
         }
     }
 
+    // removes subaccount from the current state
+    public void removeSubaccount(LedgerAccount child) {
+        if (child != null) {
+            subaccounts.remove(child);
+            if (child.parent == this) {
+                child.parent = null;
+            }
+        }
+    }
+
+    // posts debit amounts
     public void postDebit(double debit) {
         if (debit > 0) {
             this.debitTotal += debit;
         }
     }
 
+    // posts credit amounts
     public void postCredit(double credit) {
         if (credit > 0) {
             this.creditTotal += credit;
         }
     }
 
+    // resets debit and credit amounts
     public void reset() {
         this.debitTotal = 0;
         this.creditTotal = 0;
     }
 
+    // returns balance
     public double getBalance() {
         if (getNormalSide().equals("debit")) {
             return this.debitTotal - this.creditTotal;
@@ -84,6 +95,7 @@ public class LedgerAccount {
         }
     }
 
+    // returns the normal side for balances
     public String getNormalSide() {
         switch (type.toLowerCase()) {
             case "asset":
@@ -96,10 +108,5 @@ public class LedgerAccount {
             default:
                 return "debit";
         }
-    }
-
-    public String toString() {
-        return String.format("ID: %d | Name: %s | Type: %s | DR: %.2f | CR: %.2f | Balance: %.2f (%s)",
-                           id, name, type, debitTotal, creditTotal, getBalance(), getNormalSide());
     }
 }

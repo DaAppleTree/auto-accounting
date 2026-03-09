@@ -2,19 +2,24 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.swing.table.AbstractTableModel;
 
+// class for creating the tables on the ledger page
 public class LedgerTableModel extends AbstractTableModel {
-    private List<LedgerAccount> data;
-    private String[] columns = {"ID","Name","Type","Debit Total","Credit Total","Balance"};
+    private final List<LedgerAccount> data;
+    private static final String[] COLUMNS = {"ID","Name","Type","Debit Total","Credit Total","Balance"};
 
+    // constructor for the ledger table
     public LedgerTableModel() {
         data = new ArrayList<>();
     }
 
+    // updates accounts for this component
     public void setAccounts(List<LedgerAccount> list) {
-        data = new ArrayList<>(list);
+        data.clear();
+        data.addAll(list);
         fireTableDataChanged();
     }
 
+    // returns ledger account at a given row
     public LedgerAccount getAccountAt(int row) {
         if (row < 0 || row >= data.size()) {
             return null;
@@ -27,21 +32,25 @@ public class LedgerTableModel extends AbstractTableModel {
     }
 
     @Override
+    // returns row count
     public int getRowCount() {
         return data.size();
     }
 
     @Override
+    // returns column count
     public int getColumnCount() {
-        return columns.length;
+        return COLUMNS.length;
     }
 
     @Override
+    // returns column name
     public String getColumnName(int col) {
-        return columns[col];
+        return COLUMNS[col];
     }
 
     @Override
+    // returns value for a given column
     public Object getValueAt(int row, int col) {
         LedgerAccount a = data.get(row);
         boolean displayOnly = a.getId() <= 0;
@@ -62,6 +71,7 @@ public class LedgerTableModel extends AbstractTableModel {
         return null;
     }
 
+    // formats currency for display
     private String formatCurrency(double value) {
         if (value < 0) {
             return String.format("-$%.2f", Math.abs(value));

@@ -10,17 +10,24 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.border.TitledBorder;
 import javax.swing.table.TableCellRenderer;
 
+// class for creating a transaction page
 public class TransactionPage extends JPanel {
-    private Journal journal;
-    private Ledger ledger;
-    private LedgerPage ledgerPage; // reference to update ledger UI
-    // private JTextArea journalArea; // replaced by JTable below
-    private JTable journalTable;
-    private TransactionTableModel tableModel;
+    private static final Color BUTTON_DANGER = new Color(198, 40, 40);
+    private static final Color BUTTON_PRIMARY = new Color(2, 119, 189);
+    private static final Color BUTTON_SUCCESS = new Color(0, 150, 0);
+    private static final Color BUTTON_NEUTRAL = new Color(220, 224, 228);
+    private static final Color BUTTON_INFO = new Color(21, 101, 192);
+    private static final Color BUTTON_CALENDAR_DAY = new Color(136, 146, 156);
+    private static final Color BUTTON_CALENDAR_TODAY = new Color(102, 187, 106);
+    private static final Color PANEL_NEUTRAL = new Color(245, 245, 245);
+
+    private final Journal journal;
+    private final Ledger ledger;
+    private final LedgerPage ledgerPage;
+    private final JTable journalTable;
+    private final TransactionTableModel tableModel;
     private JPanel inputPanel;
-    private JScrollPane rightScroll;
-    // toggleButton removed; form always visible
-    // private JButton toggleButton;
+    private final JScrollPane rightScroll;
     private JButton dateButton;
     private JTextField amountField;
     private JTextArea descriptionField;
@@ -31,18 +38,15 @@ public class TransactionPage extends JPanel {
     private JTextField creditSearchField;
     private JTextField hstDebitField;
     private JTextField hstCreditField;
-    private JList<String> debitResultsList;
-    private JList<String> creditResultsList;
-    private DefaultListModel<String> debitListModel;
-    private DefaultListModel<String> creditListModel;
-    private JComponent tutorialScroll; // holds tutorial pane
+    private JComponent tutorialScroll;
     private LocalDate selectedDate = LocalDate.now();
-    private DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     
-    // Selected accounts
+    // selected accounts
     private LedgerAccount selectedDebitAccount;
     private LedgerAccount selectedCreditAccount;
 
+    // constructor for a transaction page
     public TransactionPage(Journal journal, Ledger ledger, LedgerPage ledgerPage) {
         this.journal = journal;
         this.ledger = ledger;
@@ -50,23 +54,23 @@ public class TransactionPage extends JPanel {
         
         setLayout(new BorderLayout(10,10));
         setBorder(new EmptyBorder(10,10,10,10));
-        // header section includes title and tutorial (hidden initially)
+
+        // header section includes title and an initial hidden tutorial
         JPanel header = new JPanel(new BorderLayout());
         header.add(createTopPanel(), BorderLayout.NORTH);
         header.add(createTutorialPanel(), BorderLayout.CENTER);
         add(header, BorderLayout.NORTH);
-        // tutorial panel accessible later via field
 
-        // CENTER - journal table
-        TransactionTableModel tableModel = new TransactionTableModel(ledger);
-        JTable journalTable = new JTable(tableModel);
+        // center panel for journal table
+        this.tableModel = new TransactionTableModel(ledger);
+        this.journalTable = new JTable(this.tableModel);
         journalTable.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
         journalTable.putClientProperty("terminateEditOnFocusLost", Boolean.TRUE);
-        TextAreaRenderer groupRenderer = new TextAreaRenderer(tableModel);
+        TextAreaRenderer groupRenderer = new TextAreaRenderer(this.tableModel);
         journalTable.setDefaultRenderer(String.class, groupRenderer);
         journalTable.setDefaultRenderer(Object.class, groupRenderer);
 
-        // column sizing: Date | Particulars | Account # | Debit | Credit
+        // create columns for date, particulars, account ID, debit accounts, and credit accounts
         journalTable.getColumnModel().getColumn(0).setPreferredWidth(95);
         journalTable.getColumnModel().getColumn(1).setPreferredWidth(360);
         journalTable.getColumnModel().getColumn(2).setPreferredWidth(90);
@@ -83,12 +87,10 @@ public class TransactionPage extends JPanel {
         ));
         add(scrollPane, BorderLayout.CENTER);
 
-        // bottom panel for delete
-        // bottom wrapper for delete button (hidden until selection)
+        // bottom panel for delete button
         JButton deleteRowBtn = new JButton("Delete Selected");
-        styleButton(deleteRowBtn, new Color(198, 40, 40));
-        // always visible; enable/disable toggled by selection listener
-        deleteRowBtn.setVisible(true);
+        styleButton(deleteRowBtn, BUTTON_DANGER);
+        deleteRowBtn.setEnabled(false);
         deleteRowBtn.addActionListener(e -> {
             int viewRow = journalTable.getSelectedRow();
             int journalIndex = tableModel.getJournalIndexForRow(viewRow);
@@ -104,11 +106,10 @@ public class TransactionPage extends JPanel {
                 }
             }
         });
-        JPanel wrapper = new JPanel(new BorderLayout());
-        wrapper.add(deleteRowBtn, BorderLayout.SOUTH);
+        JPanel wrapper = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
+        wrapper.add(deleteRowBtn);
         add(wrapper, BorderLayout.SOUTH);
-        // always show delete button, and when one row is clicked select the full
-        // transaction block (all rows with the same selection key).
+
         final boolean[] syncingSelection = new boolean[] { false };
         journalTable.getSelectionModel().addListSelectionListener(e -> {
             if (e.getValueIsAdjusting()) {
@@ -147,17 +148,11 @@ public class TransactionPage extends JPanel {
         });
         deleteRowBtn.setEnabled(false);
 
-        // store reference for later updating
-        this.journalTable = journalTable;
-        this.tableModel = tableModel;
-
-        // RIGHT SIDE - Input Panel with Binary Search
+        // right panel for inputting new transactions
         JPanel rightPanel = new JPanel(new BorderLayout());
         rightPanel.setPreferredSize(new Dimension(350, 600));
-        
-        // no toggle button; form always visible
         createInputPanel();
-        rightScroll = new JScrollPane(inputPanel);
+        this.rightScroll = new JScrollPane(inputPanel);
         rightScroll.setPreferredSize(new Dimension(350,600));
         rightScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         rightScroll.setBorder(BorderFactory.createTitledBorder(
@@ -170,22 +165,23 @@ public class TransactionPage extends JPanel {
 
         add(rightPanel, BorderLayout.EAST);
 
-
         refreshJournal();
     }
 
+    // creates input panel used by this screen
     private void createInputPanel() {
         inputPanel = new JPanel();
         inputPanel.setLayout(new BoxLayout(inputPanel, BoxLayout.Y_AXIS));
+
         // title handled by scroll pane border
         inputPanel.setBorder(new EmptyBorder(10,10,10,10));
 
-        // Date selection
+        // date selection
         dateButton = new JButton(formatter.format(selectedDate));
-        styleButton(dateButton, new Color(2, 119, 189));
+        styleButton(dateButton, BUTTON_PRIMARY);
         dateButton.addActionListener(e -> showCalendar());
         
-        // Description field
+        // description field
         descriptionField = new JTextArea(3, 20);
         descriptionField.setLineWrap(true);
         descriptionField.setWrapStyleWord(true);
@@ -196,9 +192,10 @@ public class TransactionPage extends JPanel {
         hstPurchaseCheckbox = new JCheckBox("Add 13% HST (purchase)");
         hstSaleCheckbox = new JCheckBox("Add 13% HST (sale)");
         remittanceCheckbox = new JCheckBox("Add remittance entry");
-        hstPurchaseCheckbox.setAlignmentX(Component.LEFT_ALIGNMENT);
-        hstSaleCheckbox.setAlignmentX(Component.LEFT_ALIGNMENT);
-        remittanceCheckbox.setAlignmentX(Component.LEFT_ALIGNMENT);
+        hstPurchaseCheckbox.setAlignmentX(Component.CENTER_ALIGNMENT);
+        hstSaleCheckbox.setAlignmentX(Component.CENTER_ALIGNMENT);
+        remittanceCheckbox.setAlignmentX(Component.CENTER_ALIGNMENT);
+
         // mutual exclusivity
         hstPurchaseCheckbox.addItemListener(e -> {
             if (hstPurchaseCheckbox.isSelected()) hstSaleCheckbox.setSelected(false);
@@ -218,28 +215,29 @@ public class TransactionPage extends JPanel {
             updateHstFields();
         });
         
-        // Debit & credit account fields with dropdown autofill
+        // debit and credit account fields with dropdown autofill
         debitSearchField = new JTextField(15);
         debitSearchField.setMaximumSize(new Dimension(300, 30));
         setupAccountPopup(debitSearchField, true);
         creditSearchField = new JTextField(15);
         creditSearchField.setMaximumSize(new Dimension(300, 30));
         setupAccountPopup(creditSearchField, false);
-        // HST account fields (auto-populated, uneditable)
+
+        // uneditable HST account fields
         hstDebitField = new JTextField(15);
         hstDebitField.setMaximumSize(new Dimension(300,30));
         hstDebitField.setEditable(false);
         hstDebitField.setVisible(false);
-        hstDebitField.setBackground(new Color(245, 245, 245));
+        hstDebitField.setBackground(PANEL_NEUTRAL);
         hstDebitField.setToolTipText(null);
         hstCreditField = new JTextField(15);
         hstCreditField.setMaximumSize(new Dimension(300,30));
         hstCreditField.setEditable(false);
         hstCreditField.setVisible(false);
-        hstCreditField.setBackground(new Color(245, 245, 245));
+        hstCreditField.setBackground(PANEL_NEUTRAL);
         hstCreditField.setToolTipText(null);
 
-        // Add components
+        // add components
         inputPanel.add(createLabeledField("Date:", dateButton));
         inputPanel.add(Box.createVerticalStrut(10));
         inputPanel.add(createLabeledField("Description:", descScroll));
@@ -257,16 +255,16 @@ public class TransactionPage extends JPanel {
         inputPanel.add(Box.createVerticalStrut(20));
         inputPanel.add(Box.createVerticalStrut(10));
 
-        // Buttons
+        // add buttons
         JPanel buttonPanel = new JPanel(new FlowLayout());
         
         JButton addButton = new JButton("Record Transaction");
         addButton.setFont(new Font("Arial", Font.BOLD, 12));
-        styleButton(addButton, new Color(0, 150, 0));
+        styleButton(addButton, BUTTON_SUCCESS);
         addButton.addActionListener(e -> addTransaction());
         
         JButton clearButton = new JButton("Clear Form");
-        styleButton(clearButton, new Color(96, 125, 139));
+        styleNeutralButton(clearButton);
         clearButton.addActionListener(e -> clearForm());
         
         buttonPanel.add(addButton);
@@ -276,11 +274,12 @@ public class TransactionPage extends JPanel {
     }
 
 
+    // updates selected labels for consistency
     private void updateSelectedLabels() {
-        // refresh dependent HST/remittance UI.
         updateHstFields();
     }
 
+    // creates labeled field used by this screen
     private JPanel createLabeledField(String label, JComponent field) {
         JPanel panel = new JPanel(new BorderLayout());
         panel.add(new JLabel(label), BorderLayout.NORTH);
@@ -288,14 +287,19 @@ public class TransactionPage extends JPanel {
         return panel;
     }
 
+    // checks whether an account is an HST account
     private boolean isHstAccount(LedgerAccount account) {
         if (account == null) return false;
         String n = account.getName();
-        return "HST Payable".equalsIgnoreCase(n)
-            || "HST Receivable".equalsIgnoreCase(n)
-            || "HST Recoverable".equalsIgnoreCase(n);
+        return "HST Payable".equalsIgnoreCase(n) || "HST Recoverable".equalsIgnoreCase(n);
     }
 
+    // handles account text behavior for transactionpage.
+    private String accountText(LedgerAccount account) {
+        return account != null ? (account.getId() + " - " + account.getName()) : "";
+    }
+
+    // updates HST fields for consistency.
     private void updateHstFields() {
         if (hstPurchaseCheckbox == null) return;
         boolean remittance = remittanceCheckbox.isSelected();
@@ -309,9 +313,6 @@ public class TransactionPage extends JPanel {
         hstCreditField.setVisible(false);
         if (show) {
             LedgerAccount hstRec = ledger.getAccountByName("HST Recoverable");
-            if (hstRec == null) {
-                hstRec = ledger.getAccountByName("HST Receivable");
-            }
             LedgerAccount hstPay = ledger.getAccountByName("HST Payable");
 
             if (remittance) {
@@ -329,35 +330,34 @@ public class TransactionPage extends JPanel {
                     selectedCreditAccount = hstRec;
                 }
 
-                // base remittance entry is always:
-                //   Debit HST Payable, Credit HST Recoverable/Receivable
-                debitSearchField.setText(hstPay != null ? (hstPay.getId() + " - " + hstPay.getName()) : "");
-                creditSearchField.setText(hstRec != null ? (hstRec.getId() + " - " + hstRec.getName()) : "");
+                // base remittance entry as debit HST Payable, credit HST Recoverable
+                debitSearchField.setText(accountText(hstPay));
+                creditSearchField.setText(accountText(hstRec));
 
                 // extra helper line shows only balancing cash side, if needed
                 hstDebitField.setText("");
                 hstCreditField.setText("");
                 if (cash != null && Math.abs(diff) > 0.0001) {
                     if (diff > 0) {
-                        // owe tax: cash appears on credit side
-                        hstCreditField.setText(cash.getId() + " - " + cash.getName());
+                        // cash appears on credit side if tax is owed
+                        hstCreditField.setText(accountText(cash));
                     } else {
-                        // refund due: cash appears on debit side
-                        hstDebitField.setText(cash.getId() + " - " + cash.getName());
+                        // cash appears on debit side if tax can be redeemed
+                        hstDebitField.setText(accountText(cash));
                     }
                 }
                 hstDebitField.setVisible(true);
                 hstCreditField.setVisible(true);
             } else if (hstPurchaseCheckbox.isSelected()) {
                 if (hstRec != null) {
-                    hstDebitField.setText(hstRec.getId() + " - " + hstRec.getName());
+                    hstDebitField.setText(accountText(hstRec));
                 } else {
                     hstDebitField.setText("(no HST Recoverable)");
                 }
                 hstDebitField.setVisible(true);
             } else if (hstSaleCheckbox.isSelected()) {
                 if (hstPay != null) {
-                    hstCreditField.setText(hstPay.getId() + " - " + hstPay.getName());
+                    hstCreditField.setText(accountText(hstPay));
                 } else {
                     hstCreditField.setText("(no HST Payable)");
                 }
@@ -368,7 +368,7 @@ public class TransactionPage extends JPanel {
             creditSearchField.setEditable(true);
             amountField.setEditable(true);
 
-            // remittance toggled off: remove tax-account autofill from main fields
+            // remove tax-account autofill from main fields when remittance is toggled off
             if (!hstPurchaseCheckbox.isSelected() && !hstSaleCheckbox.isSelected()) {
                 if (isHstAccount(selectedDebitAccount)) {
                     selectedDebitAccount = null;
@@ -392,8 +392,8 @@ public class TransactionPage extends JPanel {
         JList<String> resultsList = new JList<>(listModel);
         resultsList.setFont(new Font("Monospaced", Font.PLAIN, 12));
         resultsList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        // prevent the list from taking focus; keep focus on the field so we don't
-        // immediately hide the popup when the list is clicked.
+
+        // prevent the list from taking focus
         resultsList.setFocusable(false);
         JScrollPane scroll = new JScrollPane(resultsList);
         scroll.setPreferredSize(new Dimension(300, 120));
@@ -405,6 +405,7 @@ public class TransactionPage extends JPanel {
 
         // use document listener for immediate updates
         javax.swing.event.DocumentListener docListener = new javax.swing.event.DocumentListener() {
+            // updates state for consistency
             private void update() {
                 String prefix = field.getText().trim();
                 listModel.clear();
@@ -415,19 +416,14 @@ public class TransactionPage extends JPanel {
                     matches = ledger.findAccountsByPrefix(prefix);
                 }
                 for (LedgerAccount acc : matches) {
-                    String nm = acc.getName();
-                    if ("HST Payable".equalsIgnoreCase(nm) ||
-                        "HST Receivable".equalsIgnoreCase(nm) ||
-                        "HST Recoverable".equalsIgnoreCase(nm)) {
+                    if (isHstAccount(acc)) {
                         continue;
                     }
                     if (isDebit && selectedCreditAccount != null && selectedCreditAccount.getId() == acc.getId())
                         continue;
                     if (!isDebit && selectedDebitAccount != null && selectedDebitAccount.getId() == acc.getId())
                         continue;
-                    // only show id, name and type and omit balance/amount
-                    listModel.addElement(String.format("%d | %-20s | %-8s", 
-                            acc.getId(), acc.getName(), acc.getType()));
+                    listModel.addElement(String.format("%d | %-20s | %-8s",acc.getId(), acc.getName(), acc.getType()));
                 }
                 if (!listModel.isEmpty()) {
                     popup.show(field, 0, field.getHeight());
@@ -443,6 +439,7 @@ public class TransactionPage extends JPanel {
 
         resultsList.addMouseListener(new MouseAdapter() {
             @Override
+            // handles mouse clicked behavior on transaction page
             public void mouseClicked(MouseEvent e) {
                 int idx = resultsList.locationToIndex(e.getPoint());
                 if (idx >= 0) {
@@ -453,7 +450,7 @@ public class TransactionPage extends JPanel {
                         if (isDebit) selectedDebitAccount = acc;
                         else selectedCreditAccount = acc;
                         field.setText(acc.getId() + " - " + acc.getName());
-                        updateSelectedLabels();
+                        updateHstFields();
                     }
                     popup.setVisible(false);
                 }
@@ -462,51 +459,43 @@ public class TransactionPage extends JPanel {
 
         field.addFocusListener(new FocusAdapter() {
             @Override
+            // handles focus lost behavior
             public void focusLost(FocusEvent e) {
-                // if focus is moving into the popup itself (e.g. user clicked a
-                // result), don't hide it immediately.  keep the list visible so the
-                // mouse click can be processed.
                 Component opp = e.getOppositeComponent();
                 if (opp != null && SwingUtilities.isDescendingFrom(opp, popup)) {
-                    return; // ignore the loss
+                    return;
                 }
                 popup.setVisible(false);
             }
             @Override
+            // handles focus gained behavior
             public void focusGained(FocusEvent e) {
-                // show full list immediately on focus
                 docListener.insertUpdate(null);
             }
         });
     }
 
+    // adds transaction to the current state
     private void addTransaction() {
         try {
             String description = descriptionField.getText().trim();
 
-            // remittance is a dedicated auto-filled transaction type
+            // remittance is an auto-filled transaction type
             if (remittanceCheckbox.isSelected()) {
                 ledger.updateFromJournal(journal);
                 LedgerAccount hstPay = ledger.getAccountByName("HST Payable");
                 LedgerAccount hstRec = ledger.getAccountByName("HST Recoverable");
-                if (hstRec == null) {
-                    hstRec = ledger.getAccountByName("HST Receivable");
-                }
                 LedgerAccount cash = ledger.getAccountByName("Cash");
 
                 if (hstPay == null || hstRec == null || cash == null) {
-                    JOptionPane.showMessageDialog(this,
-                        "HST Payable, HST Recoverable, and Cash accounts are required for remittance.",
-                        "Error", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "HST Payable, HST Recoverable, and Cash accounts are required for remittance.", "Error", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
 
                 double payableBal = Math.max(0, hstPay.getBalance());
                 double receivableBal = Math.max(0, hstRec.getBalance());
                 if (payableBal == 0 && receivableBal == 0) {
-                    JOptionPane.showMessageDialog(this,
-                        "No HST balance to remit.",
-                        "Info", JOptionPane.INFORMATION_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "No HST balance to remit.", "Info", JOptionPane.INFORMATION_MESSAGE);
                     return;
                 }
 
@@ -516,43 +505,20 @@ public class TransactionPage extends JPanel {
                 // common offset between payable and recoverable
                 double common = Math.min(payableBal, receivableBal);
                 if (common > 0) {
-                    journal.addTransaction(new Transaction(
-                        selectedDate,
-                        remDesc,
-                        hstPay.getId(),
-                        hstRec.getId(),
-                        common,
-                        gid
-                    ));
+                    journal.addTransaction(new Transaction(selectedDate,remDesc,hstPay.getId(),hstRec.getId(),common,gid));
                 }
 
                 // balance with cash on whichever side is needed for the remainder
                 double diff = payableBal - receivableBal;
                 if (Math.abs(diff) > 0.0001) {
                     if (diff > 0) {
-                        journal.addTransaction(new Transaction(
-                            selectedDate,
-                            remDesc,
-                            hstPay.getId(),
-                            cash.getId(),
-                            diff,
-                            gid
-                        ));
+                        journal.addTransaction(new Transaction(selectedDate, remDesc, hstPay.getId(), cash.getId(), diff, gid));
                     } else {
-                        journal.addTransaction(new Transaction(
-                            selectedDate,
-                            remDesc,
-                            cash.getId(),
-                            hstRec.getId(),
-                            -diff,
-                            gid
-                        ));
+                        journal.addTransaction(new Transaction(selectedDate, remDesc, cash.getId(), hstRec.getId(), -diff, gid));
                     }
                 }
 
-                JOptionPane.showMessageDialog(this,
-                    "HST remittance recorded.",
-                    "Success", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(this, "HST remittance recorded.", "Success", JOptionPane.INFORMATION_MESSAGE);
 
                 clearForm();
                 refreshJournal();
@@ -566,81 +532,50 @@ public class TransactionPage extends JPanel {
             double amount = Double.parseDouble(amountField.getText());
 
             if (selectedDebitAccount == null || selectedCreditAccount == null) {
-                JOptionPane.showMessageDialog(this,
-                    "Please select both debit and credit accounts using the search!",
-                    "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Please select both debit and credit accounts using the search!", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
             if (selectedDebitAccount.getId() == selectedCreditAccount.getId()) {
-                JOptionPane.showMessageDialog(this,
-                    "Debit and Credit accounts cannot be the same!",
-                    "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Debit and Credit accounts cannot be the same!", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
             if (description.isEmpty()) {
-                JOptionPane.showMessageDialog(this,
-                    "Please enter a description!",
-                    "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Please enter a description!", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
-            // determine group id if any HST checkbox is selected
+            // determine group ID if any HST checkbox is selected
             int gid = 0;
             if (hstPurchaseCheckbox.isSelected() || hstSaleCheckbox.isSelected()) {
                 gid = Transaction.allocateGroupId();
             }
-            Transaction transaction = new Transaction(
-                selectedDate, description,
-                selectedDebitAccount.getId(), selectedCreditAccount.getId(),
-                amount,
-                gid
-            );
+            Transaction transaction = new Transaction(selectedDate, description, selectedDebitAccount.getId(), selectedCreditAccount.getId(), amount, gid);
 
             journal.addTransaction(transaction);
-            // in case layout hiccup hid the input section earlier, ensure it remains visible
             if (rightScroll != null) {
                 rightScroll.setVisible(true);
                 inputPanel.setVisible(true);
             }
 
             double taxAmount = 0;
-            boolean taxed = false;
             LedgerAccount hstRec = ledger.getAccountByName("HST Recoverable");
-            if (hstRec == null) {
-                hstRec = ledger.getAccountByName("HST Receivable");
-            }
             LedgerAccount hstPay = ledger.getAccountByName("HST Payable");
             if (hstPurchaseCheckbox.isSelected()) {
-                taxed = true;
                 taxAmount = amount * 0.13;
-                // purchase: debit HST Recoverable, credit same credit account
+                // debit HST Recoverable, credit same credit account for purchase
                 if (hstRec != null) {
-                    journal.addTransaction(new Transaction(
-                        selectedDate,
-                        "HST on purchase",
-                        hstRec.getId(),
-                        selectedCreditAccount.getId(),
-                        taxAmount,
-                        gid
-                    ));
+                    journal.addTransaction(new Transaction(selectedDate, "HST on purchase", hstRec.getId(), selectedCreditAccount.getId(), taxAmount, gid));
                 }
             } else if (hstSaleCheckbox.isSelected()) {
-                taxed = true;
                 taxAmount = amount * 0.13;
-                // sale: debit same debit account, credit HST Payable
+                // debit same debit account, credit HST Payable for sale
                 if (hstPay != null) {
-                    journal.addTransaction(new Transaction(
-                        selectedDate,
-                        "HST on sale",
-                        selectedDebitAccount.getId(),
-                        hstPay.getId(),
-                        taxAmount,
-                        gid
-                    ));
+                    journal.addTransaction(new Transaction(selectedDate, "HST on sale", selectedDebitAccount.getId(), hstPay.getId(), taxAmount, gid));
                 }
             }
+
             //  confirmation message
             StringBuilder msg = new StringBuilder("Transaction recorded!\n\n");
             msg.append("Date: ").append(selectedDate).append("\n");
@@ -664,15 +599,12 @@ public class TransactionPage extends JPanel {
             if (ledgerPage != null) {
                 ledgerPage.refreshLedger();
             }
-
-
         } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this,
-                "Please enter a valid amount!",
-                "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Please enter a valid amount!", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
+    // clears current input or stored data
     private void clearForm() {
         descriptionField.setText("");
         amountField.setText("");
@@ -681,15 +613,14 @@ public class TransactionPage extends JPanel {
         if (remittanceCheckbox != null) remittanceCheckbox.setSelected(false);
         if (debitSearchField != null) debitSearchField.setText("");
         if (creditSearchField != null) creditSearchField.setText("");
-        if (debitListModel != null) debitListModel.clear();
-        if (creditListModel != null) creditListModel.clear();
         selectedDate = LocalDate.now();
         dateButton.setText(formatter.format(selectedDate));
         selectedDebitAccount = null;
         selectedCreditAccount = null;
-        updateSelectedLabels();
+        updateHstFields();
     }
 
+    // refreshes journal based on current data
     private void refreshJournal() {
         List<Transaction> transactions = journal.getAllTransactions();
         if (tableModel != null) {
@@ -699,15 +630,16 @@ public class TransactionPage extends JPanel {
         }
     }
 
-    private String truncate(String str, int length) {
-        if (str.length() <= length) return str;
-        return str.substring(0, length - 3) + "...";
+    // refreshes journal display based on current data
+    public void refreshJournalDisplay() {
+        refreshJournal();
     }
 
-    // renderer to wrap text in table cells
+    // class for a renderer to wrap text in table cells
     private static class TextAreaRenderer extends JTextArea implements TableCellRenderer {
         private final TransactionTableModel model;
 
+        // constructor for a text area renderer
         public TextAreaRenderer(TransactionTableModel model) {
             this.model = model;
             setLineWrap(true);
@@ -715,6 +647,7 @@ public class TransactionPage extends JPanel {
             setOpaque(true);
         }
         @Override
+        // returns table cell renderer component
         public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
             setText(value == null ? "" : value.toString());
             setSize(table.getColumnModel().getColumn(column).getWidth(), Short.MAX_VALUE);
@@ -742,13 +675,14 @@ public class TransactionPage extends JPanel {
         }
     }
 
+    // creates top panel used by this screen
     private JPanel createTopPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        JLabel title = new JLabel("JOURNAL / TRANSACTIONS");
-        title.setFont(new Font("Arial", Font.BOLD, 20));
+        JLabel title = new JLabel("JOURNAL");
+        title.setFont(new Font("Georgia", Font.BOLD, 24));
         title.setHorizontalAlignment(SwingConstants.CENTER);
         JButton helpBtn = new JButton("Help");
-        styleButton(helpBtn, new Color(21, 101, 192));
+        styleButton(helpBtn, BUTTON_INFO);
         helpBtn.addActionListener(e -> {
             if (tutorialScroll != null) {
                 tutorialScroll.setVisible(!tutorialScroll.isVisible());
@@ -762,12 +696,13 @@ public class TransactionPage extends JPanel {
         return panel;
     }
 
+    // creates tutorial panel used by this screen
     private JComponent createTutorialPanel() {
         JTextArea tutorial = new JTextArea();
         tutorial.setEditable(false);
         tutorial.setLineWrap(true);
         tutorial.setWrapStyleWord(true);
-        tutorial.setBackground(new Color(245,245,245));
+        tutorial.setBackground(PANEL_NEUTRAL);
         tutorial.setFont(new Font("SansSerif", Font.PLAIN, 12));
         tutorial.setText(
             "Debits and Credits:\n" +
@@ -778,7 +713,7 @@ public class TransactionPage extends JPanel {
             "When recording a transaction:\n" +
             "- Enter the debit account (what receives value).\n" +
             "- Enter the credit account (what gives value).\n" +
-            "- Amount represents the value transferred.\n\n" +
+            "- Enter the amount (value transferred).\n\n" +
             "Examples:\n" +
             "- Purchase supplies for cash: debit Supplies (Expense), credit Cash (Asset).\n" +
             "- Receive revenue: debit Cash (Asset), credit Service Revenue (Revenue).\n\n" +
@@ -790,6 +725,7 @@ public class TransactionPage extends JPanel {
         return tutorialScroll;
     }
 
+    // adjusts row heights for text
     private void adjustRowHeights() {
         for (int row = 0; row < journalTable.getRowCount(); row++) {
             int maxHeight = journalTable.getRowHeight();
@@ -805,25 +741,24 @@ public class TransactionPage extends JPanel {
         }
     }
 
+    // shows calendar.
     private void showCalendar() {
         CalendarPopup popup = new CalendarPopup();
-        // force the popup to be no wider than the button that triggered it
-        int width = dateButton.getWidth();
-        if (width > 0) {
-            Dimension pref = popup.getPreferredSize();
-            popup.setPreferredSize(new Dimension(width, pref.height));
-            popup.setPopupSize(width, pref.height);
-        }
+        Dimension pref = popup.getPreferredSize();
+        int popupWidth = Math.max(280, dateButton.getWidth());
+        popup.setPreferredSize(new Dimension(popupWidth, pref.height));
+        popup.setPopupSize(popupWidth, pref.height);
         popup.show(dateButton, 0, dateButton.getHeight());
     }
 
-    // lightweight popup calendar
+    // class for a popup calendar
     private class CalendarPopup extends JPopupMenu {
         private YearMonth currentYearMonth;
         private LocalDate selDate;
         private JPanel calendarPanel;
         private JLabel monthLabel;
 
+        // constructor for a popup calendar
         CalendarPopup() {
             currentYearMonth = YearMonth.now();
             selDate = null;
@@ -832,15 +767,16 @@ public class TransactionPage extends JPanel {
             refreshCalendar();
         }
 
+        // initializes UI for popup calendar
         private void initUI() {
             JPanel headerPanel = new JPanel(new BorderLayout());
             JButton prevButton = new JButton("<");
             JButton nextButton = new JButton(">");
-            styleButton(prevButton, new Color(96, 125, 139));
-            styleButton(nextButton, new Color(96, 125, 139));
+            styleNeutralButton(prevButton);
+            styleNeutralButton(nextButton);
 
             monthLabel = new JLabel("", SwingConstants.CENTER);
-            monthLabel.setFont(new Font("Arial", Font.BOLD, 14));
+            monthLabel.setFont(new Font("Arial", Font.BOLD, 12));
 
             prevButton.addActionListener(e -> {
                 currentYearMonth = currentYearMonth.minusMonths(1);
@@ -855,17 +791,18 @@ public class TransactionPage extends JPanel {
             headerPanel.add(monthLabel, BorderLayout.CENTER);
             headerPanel.add(nextButton, BorderLayout.EAST);
 
-            calendarPanel = new JPanel(new GridLayout(0, 7));
+            calendarPanel = new JPanel(new GridLayout(0, 7, 4, 4));
             add(headerPanel, BorderLayout.NORTH);
             add(calendarPanel, BorderLayout.CENTER);
         }
 
+        // refreshes calendar based on current data
         private void refreshCalendar() {
             calendarPanel.removeAll();
             monthLabel.setText(currentYearMonth.getMonth().getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.getDefault()) + " " + currentYearMonth.getYear());
             for (DayOfWeek day : DayOfWeek.values()) {
                 JLabel lbl = new JLabel(day.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault()), SwingConstants.CENTER);
-                lbl.setFont(new Font("Arial", Font.BOLD, 12));
+                lbl.setFont(new Font("Arial", Font.BOLD, 10));
                 calendarPanel.add(lbl);
             }
             LocalDate first = currentYearMonth.atDay(1);
@@ -877,12 +814,12 @@ public class TransactionPage extends JPanel {
             for (int d = 1; d <= days; d++) {
                 LocalDate date = currentYearMonth.atDay(d);
                 JButton btn = new JButton(String.valueOf(d));
-                // square buttons and smaller font to fit two-digit numbers
                 btn.setPreferredSize(new Dimension(30, 30));
-                btn.setFont(new Font("Arial", Font.PLAIN, 10));
-                styleButton(btn, new Color(84, 110, 122));
+                btn.setFont(new Font("Arial", Font.BOLD, 10));
+                btn.setMargin(new Insets(0, 0, 0, 0));
+                styleButton(btn, BUTTON_CALENDAR_DAY);
                 if (date.equals(LocalDate.now())) {
-                    styleButton(btn, new Color(46, 125, 50));
+                    styleButton(btn, BUTTON_CALENDAR_TODAY);
                 }
                 btn.addActionListener(e -> {
                     selDate = date;
@@ -897,9 +834,18 @@ public class TransactionPage extends JPanel {
         }
     }
 
+    // handles style button behavior
     private void styleButton(JButton button, Color background) {
         button.setBackground(background);
         button.setForeground(Color.WHITE);
+        button.setFocusPainted(false);
+        button.setOpaque(true);
+        button.setBorderPainted(false);
+    }
+
+    private void styleNeutralButton(JButton button) {
+        button.setBackground(BUTTON_NEUTRAL);
+        button.setForeground(new Color(70, 70, 70));
         button.setFocusPainted(false);
         button.setOpaque(true);
         button.setBorderPainted(false);

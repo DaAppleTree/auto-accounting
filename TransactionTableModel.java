@@ -5,179 +5,145 @@ import java.util.List;
 import java.util.Map;
 import javax.swing.table.AbstractTableModel;
 
+// class for creating the tables on the transaction page
 public class TransactionTableModel extends AbstractTableModel {
-    private static class JournalRow {
-        String date;
-        String particulars;
-        String accountNumber;
-        String debit;
-        String credit;
-        int journalIndex;
-        int selectionKey;
-
-        JournalRow(String date, String particulars, String accountNumber,
-                   String debit, String credit, int journalIndex, int selectionKey) {
-            this.date = date;
-            this.particulars = particulars;
-            this.accountNumber = accountNumber;
-            this.debit = debit;
-            this.credit = credit;
-            this.journalIndex = journalIndex;
-            this.selectionKey = selectionKey;
-        }
-    }
-
-    private static class JournalEntry {
-        String date;
-        String description;
-        int journalIndex;
-        int selectionKey;
-        LinkedHashMap<Integer, Double> debits = new LinkedHashMap<>();
-        LinkedHashMap<Integer, Double> credits = new LinkedHashMap<>();
-
-        JournalEntry(String date, String description, int journalIndex, int selectionKey) {
-            this.date = date;
-            this.description = description;
-            this.journalIndex = journalIndex;
-            this.selectionKey = selectionKey;
-        }
-
-        void addDebit(int accountId, double amount) {
-            debits.put(accountId, debits.getOrDefault(accountId, 0.0) + amount);
-        }
-
-        void addCredit(int accountId, double amount) {
-            credits.put(accountId, credits.getOrDefault(accountId, 0.0) + amount);
-        }
-    }
-
     private final String[] columns = {"Date", "Particulars", "Account #", "Debit", "Credit"};
     private final DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-    private final List<JournalRow> rows;
+    private final List<String[]> rows;
+    private final List<Integer> journalIndexes;
+    private final List<Integer> selectionKeys;
     private final Ledger ledger;
 
+    // constructor for a transaction table
     public TransactionTableModel(Ledger ledger) {
         this.ledger = ledger;
         this.rows = new ArrayList<>();
+        this.journalIndexes = new ArrayList<>();
+        this.selectionKeys = new ArrayList<>();
     }
 
+    private void addRow(String date, String particulars, String accountNumber, String debit, String credit, int journalIndex, int selectionKey) {
+        rows.add(new String[]{date, particulars, accountNumber, debit, credit});
+        journalIndexes.add(journalIndex);
+        selectionKeys.add(selectionKey);
+    }
+
+    // updates transactions for this component
     public void setTransactions(List<Transaction> list) {
         rows.clear();
+        journalIndexes.clear();
+        selectionKeys.clear();
 
-        // Build logical journal entries: each grouped transaction (groupId != 0)
-        // becomes one entry; non-grouped transactions become standalone entries.
-        LinkedHashMap<String, JournalEntry> entries = new LinkedHashMap<>();
+        // turn grouped transactions into one journal entry
+        LinkedHashMap<String, String> entryDates = new LinkedHashMap<>();
+        LinkedHashMap<String, String> entryDescriptions = new LinkedHashMap<>();
+        LinkedHashMap<String, Integer> entryJournalIndexes = new LinkedHashMap<>();
+        LinkedHashMap<String, Integer> entrySelectionKeys = new LinkedHashMap<>();
+        LinkedHashMap<String, LinkedHashMap<Integer, Double>> entryDebits = new LinkedHashMap<>();
+        LinkedHashMap<String, LinkedHashMap<Integer, Double>> entryCredits = new LinkedHashMap<>();
 
         for (int i = 0; i < list.size(); i++) {
             Transaction t = list.get(i);
             int groupId = t.getGroupId();
             String key = groupId != 0 ? "G:" + groupId : "S:" + i;
 
-            JournalEntry entry = entries.get(key);
-            if (entry == null) {
+            if (!entryDates.containsKey(key)) {
                 int selectionKey = groupId != 0 ? groupId : -(i + 1);
-                entry = new JournalEntry(fmt.format(t.getDate()), t.getDescription(), i, selectionKey);
-                entries.put(key, entry);
+                entryDates.put(key, fmt.format(t.getDate()));
+                entryDescriptions.put(key, t.getDescription());
+                entryJournalIndexes.put(key, i);
+                entrySelectionKeys.put(key, selectionKey);
+                entryDebits.put(key, new LinkedHashMap<>());
+                entryCredits.put(key, new LinkedHashMap<>());
             }
 
-            if (entry.description == null || entry.description.trim().isEmpty() || entry.description.toLowerCase().contains("hst")) {
-                entry.description = t.getDescription();
+            String currentDescription = entryDescriptions.get(key);
+            if (currentDescription == null || currentDescription.trim().isEmpty() || currentDescription.toLowerCase().contains("hst")) {
+                entryDescriptions.put(key, t.getDescription());
             }
 
-            entry.addDebit(t.getDebitAccount(), t.getAmount());
-            entry.addCredit(t.getCreditAccount(), t.getAmount());
+            LinkedHashMap<Integer, Double> debits = entryDebits.get(key);
+            LinkedHashMap<Integer, Double> credits = entryCredits.get(key);
+            debits.put(t.getDebitAccount(), debits.getOrDefault(t.getDebitAccount(), 0.0) + t.getAmount());
+            credits.put(t.getCreditAccount(), credits.getOrDefault(t.getCreditAccount(), 0.0) + t.getAmount());
         }
 
-        for (JournalEntry entry : entries.values()) {
+        for (String key : entryDates.keySet()) {
+            String date = entryDates.get(key);
+            String description = entryDescriptions.get(key);
+            int journalIndex = entryJournalIndexes.get(key);
+            int selectionKey = entrySelectionKeys.get(key);
+            LinkedHashMap<Integer, Double> debits = entryDebits.get(key);
+            LinkedHashMap<Integer, Double> credits = entryCredits.get(key);
+
             boolean firstRow = true;
 
-            // debits first
-            for (Map.Entry<Integer, Double> debitLine : entry.debits.entrySet()) {
+            // add debits first
+            for (Map.Entry<Integer, Double> debitLine : debits.entrySet()) {
                 int accountId = debitLine.getKey();
                 LedgerAccount acc = ledger.getAccountById(accountId);
                 String accountName = acc != null ? acc.getName() : ("Account " + accountId);
-                rows.add(new JournalRow(
-                    firstRow ? entry.date : "",
-                    accountName,
-                    String.valueOf(accountId),
-                    String.format("$%.2f", debitLine.getValue()),
-                    "",
-                    entry.journalIndex,
-                    entry.selectionKey
-                ));
+                addRow(firstRow ? date : "", accountName, String.valueOf(accountId), String.format("$%.2f", debitLine.getValue()), "", journalIndex, selectionKey);
                 firstRow = false;
             }
 
-            // credits next (indented)
-            for (Map.Entry<Integer, Double> creditLine : entry.credits.entrySet()) {
+            // add credits next
+            for (Map.Entry<Integer, Double> creditLine : credits.entrySet()) {
                 int accountId = creditLine.getKey();
                 LedgerAccount acc = ledger.getAccountById(accountId);
                 String accountName = acc != null ? acc.getName() : ("Account " + accountId);
-                rows.add(new JournalRow(
-                    "",
-                    "    " + accountName,
-                    String.valueOf(accountId),
-                    "",
-                    String.format("$%.2f", creditLine.getValue()),
-                    entry.journalIndex,
-                    entry.selectionKey
-                ));
+                addRow("", "    " + accountName, String.valueOf(accountId), "", String.format("$%.2f", creditLine.getValue()), journalIndex, selectionKey);
             }
 
             // description line last
-            rows.add(new JournalRow(
-                "",
-                entry.description == null ? "" : entry.description,
-                "",
-                "",
-                "",
-                entry.journalIndex,
-                entry.selectionKey
-            ));
+            addRow("", description == null ? "" : description, "", "", "", journalIndex, selectionKey);
         }
 
         fireTableDataChanged();
     }
 
+    // returns journal index for a row
     public int getJournalIndexForRow(int row) {
         if (row < 0 || row >= rows.size()) return -1;
-        return rows.get(row).journalIndex;
+        return journalIndexes.get(row);
     }
 
+    // returns selection key for a row
     public int getSelectionKeyForRow(int row) {
         if (row < 0 || row >= rows.size()) return Integer.MIN_VALUE;
-        return rows.get(row).selectionKey;
+        return selectionKeys.get(row);
     }
 
     @Override
+    // returns row count
     public int getRowCount() {
         return rows.size();
     }
 
     @Override
+    // returns column count
     public int getColumnCount() {
         return columns.length;
     }
 
     @Override
+    // returns column name
     public String getColumnName(int column) {
         return columns[column];
     }
 
     @Override
+    // returns value at a given row and column
     public Object getValueAt(int rowIndex, int columnIndex) {
-        JournalRow row = rows.get(rowIndex);
-        switch (columnIndex) {
-            case 0: return row.date;
-            case 1: return row.particulars;
-            case 2: return row.accountNumber;
-            case 3: return row.debit;
-            case 4: return row.credit;
-            default: return "";
+        String[] row = rows.get(rowIndex);
+        if (columnIndex < 0 || columnIndex >= row.length) {
+            return "";
         }
+        return row[columnIndex];
     }
 
     @Override
+    // checks whether a cell is editable
     public boolean isCellEditable(int rowIndex, int columnIndex) {
         return false;
     }
