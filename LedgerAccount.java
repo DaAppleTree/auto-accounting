@@ -1,7 +1,7 @@
 
 // ledgeraccount manages this part of the accounting application.
 public class LedgerAccount {
-    private int id; // 0 for abstract accounts without ID
+    private int id; // -1 for abstract accounts without ID
     private String name;
     private String type;
     private double debitTotal;
@@ -30,7 +30,7 @@ public class LedgerAccount {
 
     // constructor for abstract nodes without ID
     public LedgerAccount(String name, String type) {
-        this(0, name, type, null);
+        this(-1, name, type, null);
     }
 
     // accessor and modifier methods

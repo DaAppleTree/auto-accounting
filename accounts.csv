@@ -1,21 +1,21 @@
 702,HST Payable,Liability,Current Liability
 301,Owner's Equity,Equity,Equity
 502,Utilities Expense,Expense,Operating Expense
-0,Fixed Asset,Asset,Asset
-0,Equity,Equity,
-0,Current Asset,Asset,Asset
+-1,Fixed Asset,Asset,Asset
+-1,Equity,Equity,
+-1,Current Asset,Asset,Asset
 -1,Current Liability,Liability,Liability
 102,Accounts Receivable,Asset,Current Asset
 101,Cash,Asset,Current Asset
 401,Service Revenue,Revenue,Revenue
 201,Accounts Payable,Liability,Current Liability
-0,Liability,Liability,
+-1,Liability,Liability,
 -1,Operating Expense,Expense,Expense
 501,Rent Expense,Expense,Operating Expense
-0,Other Expense,Expense,Expense
-0,Expense,Expense,
+-1,Other Expense,Expense,Expense
+-1,Expense,Expense,
 701,HST Recoverable,Asset,Current Asset
-0,Asset,Asset,
-0,Revenue,Revenue,
+-1,Asset,Asset,
+-1,Revenue,Revenue,
 103,Supplies,Asset,Current Asset
-0,Long-Term Liability,Liability,Liability
+-1,Long-Term Liability,Liability,Liability

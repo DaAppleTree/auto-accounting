@@ -482,7 +482,7 @@ public class Ledger {
                 String type = parts[2];
                 LedgerAccount acc;
                 if (id > 0) acc = new LedgerAccount(id, name, type);
-                else acc = new LedgerAccount(name, type);
+                else acc = new LedgerAccount(-1, name, type);
                 temp.put(name, acc);
             }
             for (String[] parts : rows) {
