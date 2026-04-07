@@ -2,7 +2,6 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Set;
 import javax.swing.JOptionPane;
 
@@ -18,7 +17,7 @@ public class Journal {
         loadFromFile();
     }
 
-    // adds transaction to the current state
+    // adds a transaction to the journal and saves it
     public void addTransaction(Transaction transaction) {
         if (transaction == null) {
             return;
@@ -46,8 +45,8 @@ public class Journal {
         return null;
     }
 
-    // handles delete transaction by index behavior for journal.
-    public boolean deleteTransactionByIndex(int index) {
+    // deletes a transaction by its index; if it belongs to a group, deletes all entries in that group
+    public boolean deleteTransaction(int index) {
         boolean removed = false;
         if (index >= 0 && index < size()) {
             Transaction t = getTransaction(index);
@@ -75,17 +74,17 @@ public class Journal {
         return removed;
     }
 
-    // handles uses account behavior for journal
+    // returns true if the given transaction involves the account
     private boolean usesAccount(Transaction t, int accountId) {
         return t != null && (t.getDebitAccount() == accountId || t.getCreditAccount() == accountId);
     }
 
-    // counts transaction lines for account for reporting
-    public int countTransactionLinesForAccount(int accountId) {
+    // counts individual transaction lines that involve the given account
+    public int countLinesForAccount(int accountId) {
         if (accountId <= 0) {
             return 0;
         }
-        List<Transaction> txs = getAllTransactions();
+        ArrayList<Transaction> txs = getAllTransactions();
         Set<Integer> groupedIds = new HashSet<>();
         int nonGroupedCount = 0;
 
@@ -111,12 +110,12 @@ public class Journal {
         return nonGroupedCount + groupedLineCount;
     }
 
-    // counts logical entries for account for reporting
-    public int countLogicalEntriesForAccount(int accountId) {
+    // counts logical journal entries (groups count as one) involving the given account
+    public int countEntriesForAccount(int accountId) {
         if (accountId <= 0) {
             return 0;
         }
-        List<Transaction> txs = getAllTransactions();
+        ArrayList<Transaction> txs = getAllTransactions();
         Set<Integer> groupedIds = new HashSet<>();
         int nonGroupedEntries = 0;
 
@@ -133,8 +132,8 @@ public class Journal {
         return nonGroupedEntries + groupedIds.size();
     }
 
-    // handles delete transactions for account behavior for journal
-    public int deleteTransactionsForAccount(int accountId) {
+    // deletes all transactions that involve the given account; returns how many were removed
+    public int deleteEntriesForAccount(int accountId) {
         if (accountId <= 0) {
             return 0;
         }
@@ -152,9 +151,12 @@ public class Journal {
         current = allTransactions.getRoot();
         while (current != null) {
             Transaction next = current.getNext();
-            boolean shouldRemove = current.getGroupId() != 0
-                    ? groupedIds.contains(current.getGroupId())
-                    : usesAccount(current, accountId);
+            boolean shouldRemove;
+            if (current.getGroupId() != 0) {
+                shouldRemove = groupedIds.contains(current.getGroupId());
+            } else {
+                shouldRemove = usesAccount(current, accountId);
+            }
 
             if (shouldRemove) {
                 allTransactions.remove(current);
@@ -171,12 +173,12 @@ public class Journal {
     }
 
     // returns all transactions
-    public List<Transaction> getAllTransactions() {
+    public ArrayList<Transaction> getAllTransactions() {
         return allTransactions.toList();
     }
 
-    // handles encode account amounts behavior for printed journal
-    private String encodeAccountAmounts(LinkedHashMap<Integer, Double> accountMap) {
+    // encodes an account-to-amount map as a bracket string, e.g. [101:50.00;201:50.00]
+    private String encodeAmounts(LinkedHashMap<Integer, Double> accountMap) {
         StringBuilder sb = new StringBuilder();
         sb.append("[");
         boolean first = true;
@@ -191,8 +193,8 @@ public class Journal {
         return sb.toString();
     }
 
-    // parses input into structured values
-    private LinkedHashMap<Integer, Double> parseAccountAmounts(String block) {
+    // parses a bracket string like [101:50.00;201:50.00] into an account-to-amount map
+    private LinkedHashMap<Integer, Double> parseAmounts(String block) {
         LinkedHashMap<Integer, Double> out = new LinkedHashMap<>();
         if (block == null) return out;
         String trimmed = block.trim();
@@ -220,14 +222,14 @@ public class Journal {
         return out;
     }
 
-    // turns logical journal entries into transaction lines
-    private void addEntryFromBracketFormat(LocalDate date, String desc, LinkedHashMap<Integer, Double> debits, LinkedHashMap<Integer, Double> credits, int gid) {
+    // expands a debit/credit map pair into individual Transaction objects and adds them
+    private void addEntry(LocalDate date, String desc, LinkedHashMap<Integer, Double> debits, LinkedHashMap<Integer, Double> credits, int gid) {
         if (debits.isEmpty() || credits.isEmpty()) {
             return;
         }
 
-        List<java.util.Map.Entry<Integer, Double>> dList = new ArrayList<>(debits.entrySet());
-        List<java.util.Map.Entry<Integer, Double>> cList = new ArrayList<>(credits.entrySet());
+        ArrayList<java.util.Map.Entry<Integer, Double>> dList = new ArrayList<>(debits.entrySet());
+        ArrayList<java.util.Map.Entry<Integer, Double>> cList = new ArrayList<>(credits.entrySet());
 
         int d = 0;
         int c = 0;
@@ -237,7 +239,7 @@ public class Journal {
         while (d < dList.size() && c < cList.size()) {
             double amount = Math.min(dRemain, cRemain);
             if (amount > 0.0000001) {
-                addLoadedTransaction(new Transaction(date, desc, dList.get(d).getKey(), cList.get(c).getKey(), amount, gid));
+                addWithoutSave(new Transaction(date, desc, dList.get(d).getKey(), cList.get(c).getKey(), amount, gid));
             }
 
             dRemain -= amount;
@@ -258,12 +260,12 @@ public class Journal {
         }
     }
 
-    // adds loaded transaction to the current state
-    private void addLoadedTransaction(Transaction tx) {
+    // adds a transaction without triggering a save (used during file loading)
+    private void addWithoutSave(Transaction tx) {
         allTransactions.addByDate(tx);
     }
 
-    // loads from file from storage
+    // loads saved transactions from the CSV file
     private void loadFromFile() {
         java.io.File f = new java.io.File(TRANSACTION_FILE);
         if (!f.exists()) return;
@@ -284,16 +286,16 @@ public class Journal {
                     if (parts.length >= 5 && parts[2].trim().startsWith("[") && parts[3].trim().startsWith("[")) {
                         LocalDate date = LocalDate.parse(parts[0].trim());
                         String desc = parts[1].trim();
-                        LinkedHashMap<Integer, Double> debits = parseAccountAmounts(parts[2].trim());
-                        LinkedHashMap<Integer, Double> credits = parseAccountAmounts(parts[3].trim());
+                        LinkedHashMap<Integer, Double> debits = parseAmounts(parts[2].trim());
+                        LinkedHashMap<Integer, Double> credits = parseAmounts(parts[3].trim());
                         int gid = 0;
                         if (!parts[4].trim().isEmpty()) {
                             gid = Integer.parseInt(parts[4].trim());
                             if (gid > 0) {
-                                Transaction.ensureNextGroupIdAtLeast(gid + 1);
+                                Transaction.setMinGroupId(gid + 1);
                             }
                         }
-                        addEntryFromBracketFormat(date, desc, debits, credits, gid);
+                        addEntry(date, desc, debits, credits, gid);
                         continue;
                     }
 
@@ -306,10 +308,10 @@ public class Journal {
                     if (parts.length >= 6 && !parts[5].trim().isEmpty()) {
                         gid = Integer.parseInt(parts[5].trim());
                         if (gid > 0) {
-                            Transaction.ensureNextGroupIdAtLeast(gid + 1);
+                            Transaction.setMinGroupId(gid + 1);
                         }
                     }
-                    addLoadedTransaction(new Transaction(date, desc, dr, cr, amt, gid));
+                    addWithoutSave(new Transaction(date, desc, dr, cr, amt, gid));
                 } catch (RuntimeException parseError) {
                     malformedRows++;
                 }
@@ -326,19 +328,27 @@ public class Journal {
         }
     }
 
-    // saves file to storage
+    // saves grouped journal entries to the CSV file
     public void saveToFile() {
         try (java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.FileWriter(TRANSACTION_FILE))) {
             // saves to the file using the format <date>,<desc>,[debitId:amount;...],[creditId:amount;...],<gid>
-            List<Transaction> txs = getAllTransactions();
-            LinkedHashMap<String, List<Transaction>> grouped = new LinkedHashMap<>();
+            ArrayList<Transaction> txs = getAllTransactions();
+            LinkedHashMap<String, ArrayList<Transaction>> grouped = new LinkedHashMap<>();
             for (int i = 0; i < txs.size(); i++) {
                 Transaction t = txs.get(i);
-                String key = t.getGroupId() != 0 ? "G:" + t.getGroupId() : "S:" + i;
-                grouped.computeIfAbsent(key, k -> new ArrayList<>()).add(t);
+                String key;
+                if (t.getGroupId() != 0) {
+                    key = "G:" + t.getGroupId();
+                } else {
+                    key = "S:" + i;
+                }
+                if (!grouped.containsKey(key)) {
+                    grouped.put(key, new ArrayList<>());
+                }
+                grouped.get(key).add(t);
             }
 
-            for (List<Transaction> entryLines : grouped.values()) {
+            for (ArrayList<Transaction> entryLines : grouped.values()) {
                 if (entryLines.isEmpty()) {
                     continue;
                 }
@@ -353,12 +363,7 @@ public class Journal {
                     credits.put(line.getCreditAccount(), credits.getOrDefault(line.getCreditAccount(), 0.0) + line.getAmount());
                 }
 
-                pw.printf("%s,%s,%s,%s,%d\n",
-                    first.getDate(),
-                    desc,
-                    encodeAccountAmounts(debits),
-                    encodeAccountAmounts(credits),
-                    gid);
+                pw.printf("%s,%s,%s,%s,%d\n", first.getDate(), desc, encodeAmounts(debits), encodeAmounts(credits), gid);
             }
         } catch (java.io.IOException e) {
             // error for if the file is unable to be saved
@@ -382,3 +387,4 @@ public class Journal {
         saveToFile();
     }
 }
+

@@ -1,7 +1,6 @@
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
 
 // abstract class for financial records shown in the reports page
 public abstract class FinancialRecord {
@@ -40,12 +39,20 @@ public abstract class FinancialRecord {
     protected abstract void buildText(StringBuilder sb);
 
     // shared helper that returns only leaf accounts matching a specific type
-    protected List<LedgerAccount> accountsByType(String type) {
-        return ledger.getAllAccountsSorted().stream().filter(a -> a != null && a.getId() > 0 && type.equals(a.getType())).collect(Collectors.toList());
+    protected ArrayList<LedgerAccount> accountsByType(String type) {
+        ArrayList<LedgerAccount> matchingAccounts = new ArrayList<>();
+
+        for (LedgerAccount account : ledger.getAllAccountsSorted()) {
+            if (account != null && account.getId() > 0 && type.equals(account.getType())) {
+                matchingAccounts.add(account);
+            }
+        }
+
+        return matchingAccounts;
     }
 
     // shared helper that builds table rows from account name and balance values
-    protected Object[][] buildRows(List<LedgerAccount> accounts) {
+    protected Object[][] buildRows(ArrayList<LedgerAccount> accounts) {
         Object[][] rows = new Object[accounts.size()][2];
         for (int i = 0; i < accounts.size(); i++) {
             LedgerAccount account = accounts.get(i);
@@ -55,3 +62,4 @@ public abstract class FinancialRecord {
         return rows;
     }
 }
+

@@ -1,7 +1,6 @@
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -110,27 +109,27 @@ public class LedgerPage extends JPanel {
         styleButton(deleteRowBtn, BUTTON_DANGER);
         deleteRowBtn.setEnabled(false);
         deleteRowBtn.addActionListener(e -> {
-            int r = ledgerTable.getSelectedRow();
-            if (r >= 0) {
-                LedgerAccount acc = ledgerTableModel.getAccountAt(r);
-                if (acc == null) {
+            int selectedRow = ledgerTable.getSelectedRow();
+            if (selectedRow >= 0) {
+                LedgerAccount account = ledgerTableModel.getAccountAt(selectedRow);
+                if (account == null) {
                     return;
                 }
-                int impactedEntries = journal.countLogicalEntriesForAccount(acc.getId());
-                int impactedLines = journal.countTransactionLinesForAccount(acc.getId());
+                int impactedEntries = journal.countEntriesForAccount(account.getId());
+                int impactedLines = journal.countLinesForAccount(account.getId());
                 String warning = "";
                 if (impactedLines > 0) {
-                    warning = String.format("\n\nWarning: This will also delete %d journal line(s) across %d logical transaction(s).",
+                    warning = String.format("\n\nWarning: This will also delete %d journal line(s) across %d transaction(s).",
                             impactedLines, impactedEntries);
                 }
                 int choice = JOptionPane.showConfirmDialog(this,
-                        "Delete account '" + acc.getName() + "' (ID " + acc.getId() + ")?" + warning,
+                        "Delete account '" + account.getName() + "' (ID " + account.getId() + ")?" + warning,
                         "Confirm", JOptionPane.YES_NO_OPTION);
                 if (choice == JOptionPane.YES_OPTION) {
                     if (impactedLines > 0) {
-                        journal.deleteTransactionsForAccount(acc.getId());
+                        journal.deleteEntriesForAccount(account.getId());
                     }
-                    ledger.removeAccount(acc.getId());
+                    ledger.removeAccount(account.getId());
                     ledger.updateFromJournal(journal);
                     refreshLedger();
                     if (journalRefreshAction != null) {
@@ -144,7 +143,7 @@ public class LedgerPage extends JPanel {
         viewGraphBtn = new JButton("View Graph");
         styleButton(viewGraphBtn, BUTTON_PRIMARY);
         viewGraphBtn.setEnabled(false);
-        viewGraphBtn.addActionListener(e -> showGraphForSelected());
+        viewGraphBtn.addActionListener(e -> showGraph());
 
         bottomPanel.add(viewGraphBtn);
         bottomPanel.add(deleteRowBtn);
@@ -152,7 +151,7 @@ public class LedgerPage extends JPanel {
         
         // selection listener to enable/disable delete and graph buttons
         ledgerTable.getSelectionModel().addListSelectionListener(e -> {
-            updateRowActionButtonsVisibility();
+            updateRowButtons();
         });
 
         refreshLedger();
@@ -163,7 +162,7 @@ public class LedgerPage extends JPanel {
         this.journalRefreshAction = journalRefreshAction;
     }
 
-    // creates top panel used by this screen
+    // builds the page header
     private JPanel createTopPanel() {
         JPanel panel = new JPanel(new BorderLayout());
         
@@ -176,7 +175,7 @@ public class LedgerPage extends JPanel {
         return panel;
     }
 
-    // creates account creation panel used by this screen.
+    // builds the form for creating a new account
     private JPanel createAccountCreationPanel() {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
@@ -209,13 +208,13 @@ public class LedgerPage extends JPanel {
         typeCombo.addActionListener(e -> {
             String type = (String) typeCombo.getSelectedItem();
             String prefix = "";
-            if ("Asset".equals(type)) prefix = "1";
-            else if ("Liability".equals(type)) prefix = "2";
-            else if ("Equity".equals(type)) prefix = "3";
-            else if ("Revenue".equals(type)) prefix = "4";
-            else if ("Expense".equals(type)) prefix = "5";
+            if (type.equals("Asset")) prefix = "1";
+            else if (type.equals("Liability")) prefix = "2";
+            else if (type.equals("Equity")) prefix = "3";
+            else if (type.equals("Revenue")) prefix = "4";
+            else if (type.equals("Expense")) prefix = "5";
             idField.setText(prefix);
-            updateSubtypeOptions();
+            refreshSubtypes();
         });
 
         // set default as asset
@@ -229,18 +228,18 @@ public class LedgerPage extends JPanel {
         panel.add(Box.createVerticalStrut(20));
 
         // initialize subtype options
-        updateSubtypeOptions();
+        refreshSubtypes();
 
         // add account button
         JButton addButton = new JButton("Create Account");
-        addButton.setFont(new Font("Arial", Font.BOLD, 12));
         styleButton(addButton, BUTTON_CREATE);
+        addButton.setFont(new Font("Arial", Font.BOLD, 12));
         addButton.addActionListener(e -> addNewAccount());
         JPanel createButtonRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
         createButtonRow.setOpaque(false);
         createButtonRow.add(addButton);
         panel.add(createButtonRow);
-        
+
         panel.add(Box.createVerticalStrut(20));
 
         // account numbering guide
@@ -254,15 +253,10 @@ public class LedgerPage extends JPanel {
             "200-299: Liabilities\n" +
             "300-399: Equity\n" +
             "400-499: Revenue\n" +
-            "500-599: Expenses\n\n" +
-            "Examples:\n" +
-            "101: Cash (Asset)\n" +
-            "201: AP (Liability)\n" +
-            "401: Sales (Revenue)\n" +
-            "501: Rent (Expense)"
+            "500-599: Expenses\n\n"
         );
         guideArea.setBorder(BorderFactory.createEtchedBorder());
-        
+
         JScrollPane guideScroll = new JScrollPane(guideArea);
         guideScroll.setPreferredSize(new Dimension(300, 200));
         panel.add(guideScroll);
@@ -270,7 +264,7 @@ public class LedgerPage extends JPanel {
         return panel;
     }
 
-    // creates bottom panel with many buttons used by this screen
+    // builds the main action button row
     private JPanel createBottomPanel() {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
 
@@ -290,7 +284,7 @@ public class LedgerPage extends JPanel {
             } else {
                 ledgerViewLayout.show(ledgerViewPanel, "FLAT");
             }
-            updateRowActionButtonsVisibility();
+            updateRowButtons();
         });
 
         panel.add(refreshBtn);
@@ -299,7 +293,7 @@ public class LedgerPage extends JPanel {
         return panel;
     }
 
-    // handles style button behavior
+    // applies the shared filled-button style
     private void styleButton(JButton button, Color background) {
         button.setBackground(background);
         button.setForeground(Color.WHITE);
@@ -308,7 +302,7 @@ public class LedgerPage extends JPanel {
         button.setBorderPainted(false);
     }
 
-    // handles style toggle button behavior
+    // applies the shared toggle-button style
     private void styleToggleButton(JToggleButton button) {
         button.setBackground(BUTTON_PRIMARY);
         button.setForeground(Color.WHITE);
@@ -317,13 +311,13 @@ public class LedgerPage extends JPanel {
         button.setBorderPainted(false);
     }
 
-    // checks whether grouped view enabled is true
+    // returns true when the grouped ledger view is active
     private boolean isGroupedViewEnabled() {
         return groupedViewToggle != null && groupedViewToggle.isSelected();
     }
 
-    // updates row action buttons visibility for consistency
-    private void updateRowActionButtonsVisibility() {
+    // enables or disables the delete/graph buttons based on current selection
+    private void updateRowButtons() {
         if (deleteRowBtn == null || viewGraphBtn == null) {
             return;
         }
@@ -333,7 +327,10 @@ public class LedgerPage extends JPanel {
             return;
         }
         int row = ledgerTable.getSelectedRow();
-        LedgerAccount selected = row >= 0 ? ledgerTableModel.getAccountAt(row) : null;
+        LedgerAccount selected = null;
+        if (row >= 0) {
+            selected = ledgerTableModel.getAccountAt(row);
+        }
         boolean enabled = selected != null;
         deleteRowBtn.setEnabled(enabled);
         viewGraphBtn.setEnabled(enabled);
@@ -363,7 +360,7 @@ public class LedgerPage extends JPanel {
             String normalSide = acct.getNormalSide();
             area.append(String.format("%-20s : %10.2f (%s)\n", name, balance, normalSide));
 
-            if ("debit".equals(normalSide)) {
+            if (normalSide.equals("debit")) {
                 totalDebits += balance;
             } else {
                 totalCredits += balance;
@@ -385,14 +382,14 @@ public class LedgerPage extends JPanel {
         JOptionPane.showMessageDialog(this, pane, "Trial Balance", JOptionPane.INFORMATION_MESSAGE);
     }
 
-    // adds new account to the current state.
+    // creates a new ledger account from the form fields
     private void addNewAccount() {
         try {
             int id = Integer.parseInt(idField.getText().trim());
             String name = nameField.getText().trim();
             String type = (String) typeCombo.getSelectedItem();
 
-            // valides account name and ID
+            // validates the account name and ID
             if (name.isEmpty()) {
                 JOptionPane.showMessageDialog(this,"Please enter an account name!","Error", JOptionPane.ERROR_MESSAGE);
                 return;
@@ -408,8 +405,8 @@ public class LedgerPage extends JPanel {
             LedgerAccount parent = null;
             if (subtype != null && !subtype.equals("None")) {
                 // find or create parent abstract account under the type
-                LedgerAccount typeCategory = ledger.getOrCreateAbstractAccount(type, type, null);
-                parent = ledger.getOrCreateAbstractAccount(subtype, type, typeCategory);
+                LedgerAccount typeCategory = ledger.getOrCreateRoot(type);
+                parent = ledger.getOrCreateSubtype(subtype, type, typeCategory);
             }
 
             LedgerAccount newAccount = new LedgerAccount(id, name, type, parent);
@@ -431,37 +428,56 @@ public class LedgerPage extends JPanel {
         }
     }
 
-    // clears current input or stored data
+    // resets the account-creation form
     private void clearFields() {
         idField.setText("");
         nameField.setText("");
         typeCombo.setSelectedIndex(0);
     }
 
-    // refreshes ledger based on current data
+    // reloads both ledger views and updates the summary
     public void refreshLedger() {
-        List<LedgerAccount> accounts = ledger.getAllAccountsSorted();
+        ArrayList<LedgerAccount> accounts = ledger.getAllAccountsSorted();
 
         // normal view where all accounts in strict ID order
         ledgerTableModel.setAccounts(accounts);
 
         // grouped view where separate tables are made for each account type and subtype
-        LinkedHashMap<String, LinkedHashMap<String, List<LedgerAccount>>> grouped = buildGroupedAccounts(accounts);
-        rebuildGroupedLedgerPanel(grouped);
+        LinkedHashMap<String, LinkedHashMap<String, ArrayList<LedgerAccount>>> grouped = groupAccounts(accounts);
+        buildGroupedPanel(grouped);
 
         if (accounts.isEmpty()) {
             summaryLabel.setText("No accounts in ledger");
         } else {
-            long assets = accounts.stream().filter(a -> a.getType().equals("Asset")).count();
-            long liabilities = accounts.stream().filter(a -> a.getType().equals("Liability")).count();
-            long equity = accounts.stream().filter(a -> a.getType().equals("Equity")).count();
-            long revenue = accounts.stream().filter(a -> a.getType().equals("Revenue")).count();
-            long expenses = accounts.stream().filter(a -> a.getType().equals("Expense")).count();
+            long assets = 0;
+            long liabilities = 0;
+            long equity = 0;
+            long revenue = 0;
+            long expenses = 0;
 
-            double currentAssetsTotal = ledger.getRecursiveTotalByName("Current Asset");
-            double fixedAssetsTotal = ledger.getRecursiveTotalByName("Fixed Asset");
-            double currentLiabilitiesTotal = ledger.getRecursiveTotalByName("Current Liability");
-            double longTermLiabilitiesTotal = ledger.getRecursiveTotalByName("Long-Term Liability");
+            for (LedgerAccount account : accounts) {
+                if (account == null) {
+                    continue;
+                }
+
+                String type = account.getType();
+                if (type.equals("Asset")) {
+                    assets++;
+                } else if (type.equals("Liability")) {
+                    liabilities++;
+                } else if (type.equals("Equity")) {
+                    equity++;
+                } else if (type.equals("Revenue")) {
+                    revenue++;
+                } else if (type.equals("Expense")) {
+                    expenses++;
+                }
+            }
+
+            double currentAssetsTotal = ledger.getTotalByName("Current Asset");
+            double fixedAssetsTotal = ledger.getTotalByName("Fixed Asset");
+            double currentLiabilitiesTotal = ledger.getTotalByName("Current Liability");
+            double longTermLiabilitiesTotal = ledger.getTotalByName("Long-Term Liability");
 
             summaryLabel.setText(String.format(
                 "<html>Total: %d  Assets:%d Liabilities:%d Equity:%d Revenue:%d Expenses:%d"
@@ -473,10 +489,10 @@ public class LedgerPage extends JPanel {
                 formatMoney(longTermLiabilitiesTotal)
             ));
         }
-        updateRowActionButtonsVisibility();
+        updateRowButtons();
     }
 
-    // formats money for display
+    // formats money values for display
     private String formatMoney(double value) {
         if (value < 0) {
             return String.format("-$%.2f", Math.abs(value));
@@ -484,9 +500,9 @@ public class LedgerPage extends JPanel {
         return String.format("$%.2f", value);
     }
 
-    // builds grouped accounts for output or rendering
-    private LinkedHashMap<String, LinkedHashMap<String, List<LedgerAccount>>> buildGroupedAccounts(List<LedgerAccount> accounts) {
-        LinkedHashMap<String, LinkedHashMap<String, List<LedgerAccount>>> grouped = new LinkedHashMap<>();
+    // groups accounts by type and subtype for the grouped ledger view
+    private LinkedHashMap<String, LinkedHashMap<String, ArrayList<LedgerAccount>>> groupAccounts(ArrayList<LedgerAccount> accounts) {
+        LinkedHashMap<String, LinkedHashMap<String, ArrayList<LedgerAccount>>> grouped = new LinkedHashMap<>();
         grouped.put("Assets", new LinkedHashMap<>());
         grouped.put("Liabilities", new LinkedHashMap<>());
         grouped.put("Equity", new LinkedHashMap<>());
@@ -508,25 +524,28 @@ public class LedgerPage extends JPanel {
             }
 
             String type = account.getType();
-            String parentName = account.getParent() != null ? account.getParent().getName() : "";
+            String parentName = "";
+            if (account.getParent() != null) {
+                parentName = account.getParent().getName();
+            }
 
-            if ("Asset".equals(type)) {
-                if ("Fixed Asset".equalsIgnoreCase(parentName)) {
+            if (type.equals("Asset")) {
+                if (parentName.equalsIgnoreCase("Fixed Asset")) {
                     grouped.get("Assets").get("Fixed Assets").add(account);
                 } else {
                     grouped.get("Assets").get("Current Assets").add(account);
                 }
-            } else if ("Liability".equals(type)) {
-                if ("Long-Term Liability".equalsIgnoreCase(parentName)) {
+            } else if (type.equals("Liability")) {
+                if (parentName.equalsIgnoreCase("Long-Term Liability")) {
                     grouped.get("Liabilities").get("Long-Term Liabilities").add(account);
                 } else {
                     grouped.get("Liabilities").get("Current Liabilities").add(account);
                 }
-            } else if ("Equity".equals(type)) {
+            } else if (type.equals("Equity")) {
                 grouped.get("Equity").get("Equity").add(account);
-            } else if ("Revenue".equals(type)) {
+            } else if (type.equals("Revenue")) {
                 grouped.get("Revenue").get("Revenue").add(account);
-            } else if ("Expense".equals(type)) {
+            } else if (type.equals("Expense")) {
                 if (parentName.toLowerCase().contains("other")) {
                     grouped.get("Expenses").get("Other Expenses").add(account);
                 } else {
@@ -537,23 +556,29 @@ public class LedgerPage extends JPanel {
         return grouped;
     }
 
-    // handles rebuild grouped ledger panel behavior
-    private void rebuildGroupedLedgerPanel(LinkedHashMap<String, LinkedHashMap<String, List<LedgerAccount>>> grouped) {
+    // rebuilds the grouped-view panel with section headers and tables per subtype
+    private void buildGroupedPanel(LinkedHashMap<String, LinkedHashMap<String, ArrayList<LedgerAccount>>> grouped) {
         groupedLedgerPanel.removeAll();
 
-        for (Map.Entry<String, LinkedHashMap<String, List<LedgerAccount>>> heading : grouped.entrySet()) {
+        for (Map.Entry<String, LinkedHashMap<String, ArrayList<LedgerAccount>>> heading : grouped.entrySet()) {
             JPanel headingPanel = new JPanel();
             headingPanel.setLayout(new BoxLayout(headingPanel, BoxLayout.Y_AXIS));
             headingPanel.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEtchedBorder(),heading.getKey(),TitledBorder.LEFT,TitledBorder.TOP,new Font("Arial", Font.BOLD, 14)));
 
-            for (Map.Entry<String, List<LedgerAccount>> subtype : heading.getValue().entrySet()) {
+            for (Map.Entry<String, ArrayList<LedgerAccount>> subtype : heading.getValue().entrySet()) {
                 JPanel subtypePanel = new JPanel(new BorderLayout());
                 subtypePanel.setBorder(BorderFactory.createTitledBorder(subtype.getKey()));
 
-                List<LedgerAccount> sortedSubtype = mergeSortById(subtype.getValue());
-                JTable subtypeTable = createSubtypeTable(sortedSubtype);
+                ArrayList<LedgerAccount> sortedSubtype = sortById(subtype.getValue());
+                JTable subtypeTable = buildSubtypeTable(sortedSubtype);
                 JScrollPane subScroll = new JScrollPane(subtypeTable);
-                subScroll.setPreferredSize(new Dimension(500, sortedSubtype.isEmpty() ? 45 : 90));
+                int tableHeight;
+                if (sortedSubtype.isEmpty()) {
+                    tableHeight = 45;
+                } else {
+                    tableHeight = 90;
+                }
+                subScroll.setPreferredSize(new Dimension(500, tableHeight));
                 subtypePanel.add(subScroll, BorderLayout.CENTER);
                 headingPanel.add(subtypePanel);
             }
@@ -566,11 +591,11 @@ public class LedgerPage extends JPanel {
         groupedLedgerPanel.repaint();
     }
 
-    // creates subtype table used in grouped view
-    private JTable createSubtypeTable(List<LedgerAccount> accounts) {
+    // creates a read-only table for one subtype section in the grouped view
+    private JTable buildSubtypeTable(ArrayList<LedgerAccount> accounts) {
         LedgerTableModel model = new LedgerTableModel();
         if (accounts.isEmpty()) {
-            List<LedgerAccount> placeholder = new ArrayList<>();
+            ArrayList<LedgerAccount> placeholder = new ArrayList<>();
             placeholder.add(new LedgerAccount("(none)", "DISPLAY"));
             model.setAccounts(placeholder);
         } else {
@@ -590,21 +615,24 @@ public class LedgerPage extends JPanel {
         return table;
     }
 
-    // mergesort algorithm for sorting accounts by ID
-    private List<LedgerAccount> mergeSortById(List<LedgerAccount> input) {
-        if (input == null || input.size() <= 1) {
-            return input == null ? new ArrayList<>() : new ArrayList<>(input);
+    // sorts a list of accounts by ID using merge sort
+    private ArrayList<LedgerAccount> sortById(ArrayList<LedgerAccount> input) {
+        if (input == null) {
+            return new ArrayList<>();
+        }
+        if (input.size() <= 1) {
+            return new ArrayList<>(input);
         }
 
         int mid = input.size() / 2;
-        List<LedgerAccount> left = mergeSortById(input.subList(0, mid));
-        List<LedgerAccount> right = mergeSortById(input.subList(mid, input.size()));
+        ArrayList<LedgerAccount> left = sortById(new ArrayList<>(input.subList(0, mid)));
+        ArrayList<LedgerAccount> right = sortById(new ArrayList<>(input.subList(mid, input.size())));
         return mergeById(left, right);
     }
 
-    // merges ledger account lists by ID
-    private List<LedgerAccount> mergeById(List<LedgerAccount> left, List<LedgerAccount> right) {
-        List<LedgerAccount> merged = new ArrayList<>();
+    // merges two sorted account lists into one sorted list
+    private ArrayList<LedgerAccount> mergeById(ArrayList<LedgerAccount> left, ArrayList<LedgerAccount> right) {
+        ArrayList<LedgerAccount> merged = new ArrayList<>();
         int i = 0;
         int j = 0;
 
@@ -624,43 +652,36 @@ public class LedgerPage extends JPanel {
         return merged;
     }
 
-    // updates subtype options for consistency
-    private void updateSubtypeOptions() {
+    // updates the subtype dropdown when the account type changes
+    private void refreshSubtypes() {
         String selectedType = (String) typeCombo.getSelectedItem();
         String[] options = subtypeMap.getOrDefault(selectedType, new String[]{"None"});
         subtypeCombo.setModel(new DefaultComboBoxModel<>(options));
     }
 
-    // checks for potential errors and then displays graph panel
-    private void showGraphForSelected() {
+    // opens the balance history graph for the selected account
+    private void showGraph() {
         int row = ledgerTable.getSelectedRow();
         if (row < 0) {
             JOptionPane.showMessageDialog(this, "Please select an account first.", "No Account Selected", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        LedgerAccount acc = ledgerTableModel.getAccountAt(row);
-        if (acc == null) {
+        LedgerAccount account = ledgerTableModel.getAccountAt(row);
+        if (account == null) {
             JOptionPane.showMessageDialog(this, "Please select an actual account row.", "No Account Selected", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        List<Ledger.BalancePoint> history = ledger.getBalanceHistory(acc.getId(), journal);
+        ArrayList<Ledger.BalancePoint> history = ledger.getBalanceHistory(account.getId(), journal);
         if (history.isEmpty()) {
             JOptionPane.showMessageDialog(this, "No transactions have affected this account.", "No Data", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
-        AccountGraphDialog dlg = new AccountGraphDialog((JFrame) SwingUtilities.getWindowAncestor(this), acc.getName(), history);
-        dlg.setVisible(true);
-    }
 
-    // accountgraphdialog manages this part of the accounting application.
-    private static class AccountGraphDialog extends JDialog {
-        // constructor for accountgraphdialog setup.
-        public AccountGraphDialog(JFrame owner, String accountName, List<Ledger.BalancePoint> history) {
-            super(owner, "Balance Graph for " + accountName, true);
-            setSize(500, 400);
-            setLocationRelativeTo(owner);
-            add(new GraphPanel(history));
-        }
+        JDialog dialog = new JDialog((JFrame) SwingUtilities.getWindowAncestor(this), "Balance Graph for " + account.getName(), true);
+        dialog.setSize(500, 400);
+        dialog.setLocationRelativeTo(this);
+        dialog.add(new GraphPanel(history));
+        dialog.setVisible(true);
     }
-
 }
+

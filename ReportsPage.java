@@ -14,7 +14,7 @@ public class ReportsPage extends JPanel {
     private final Journal journal;
     private final Ledger ledger;
     private final JTextArea reportArea;
-    private final List<FinancialRecord> reports;
+    private final ArrayList<FinancialRecord> reports;
 
     // constructor for the reports page
     public ReportsPage(Journal journal, Ledger ledger) {
@@ -121,13 +121,13 @@ public class ReportsPage extends JPanel {
     private void showFinancialRatios() {
         ledger.updateFromJournal(journal);
 
-        double currentAssets = ledger.getRecursiveTotalByName("Current Asset");
-        double currentLiabilities = ledger.getRecursiveTotalByName("Current Liability");
-        double totalAssets = ledger.getRecursiveTotalByName("Asset");
-        double totalLiabilities = ledger.getRecursiveTotalByName("Liability");
-        double equity = ledger.getRecursiveTotalByName("Equity");
-        double revenue = ledger.getRecursiveTotalByName("Revenue");
-        double expense = ledger.getRecursiveTotalByName("Expense");
+        double currentAssets = ledger.getTotalByName("Current Asset");
+        double currentLiabilities = ledger.getTotalByName("Current Liability");
+        double totalAssets = ledger.getTotalByName("Asset");
+        double totalLiabilities = ledger.getTotalByName("Liability");
+        double equity = ledger.getTotalByName("Equity");
+        double revenue = ledger.getTotalByName("Revenue");
+        double expense = ledger.getTotalByName("Expense");
         double netIncome = revenue - expense;
 
         double cash = valueOf("Cash");
@@ -139,12 +139,12 @@ public class ReportsPage extends JPanel {
         sb.append("FINANCIAL RATIOS\n");
         sb.append("==============================\n\n");
 
-        appendRatio(sb, "Current Ratio", "Current Assets / Current Liabilities", ">= 2.0 : 1", formatRatio(currentAssets, currentLiabilities));
-        appendRatio(sb, "Quick Ratio", "(Cash + A/R + HST Recoverable) / Current Liabilities", ">= 1.0 : 1", formatRatio(quickAssets, currentLiabilities));
-        appendRatio(sb, "Debt-to-Equity", "Total Liabilities / Total Equity", "<= 1.5 : 1", formatRatio(totalLiabilities, equity));
-        appendRatio(sb, "Debt Ratio", "Total Liabilities / Total Assets", "<= 0.50", formatDecimalRatio(totalLiabilities, totalAssets));
-        appendRatio(sb, "Net Profit Margin", "Net Income / Revenue", ">= 10%", formatPercent(netIncome, revenue));
-        appendRatio(sb, "Return on Equity (ROE)", "Net Income / Total Equity", ">= 15%", formatPercent(netIncome, equity));
+        appendRatio(sb, "Current Ratio", "Current Assets / Current Liabilities", "> 2.0 : 1", formatRatio(currentAssets, currentLiabilities));
+        appendRatio(sb, "Quick Ratio", "(Cash + A/R + HST Recoverable) / Current Liabilities", "> 1.0 : 1", formatRatio(quickAssets, currentLiabilities));
+        appendRatio(sb, "Debt-to-Equity", "Total Liabilities / Total Equity", "< 1.5 : 1", formatRatio(totalLiabilities, equity));
+        appendRatio(sb, "Debt Ratio", "Total Liabilities / Total Assets", "< 0.50", formatDecimalRatio(totalLiabilities, totalAssets));
+        appendRatio(sb, "Net Profit Margin", "Net Income / Revenue", "> 10%", formatPercent(netIncome, revenue));
+        appendRatio(sb, "Return on Equity", "Net Income / Total Equity", "> 15%", formatPercent(netIncome, equity));
 
         reportArea.setText(sb.toString());
     }
@@ -152,7 +152,10 @@ public class ReportsPage extends JPanel {
     // gets the balance of an account
     private double valueOf(String accountName) {
         LedgerAccount account = ledger.getAccountByName(accountName);
-        return account != null ? account.getBalance() : 0;
+        if (account == null) {
+            return 0;
+        }
+        return account.getBalance();
     }
 
     // adds financial ratios to table
@@ -187,3 +190,4 @@ public class ReportsPage extends JPanel {
         return String.format("%.2f%%", (numerator / denominator) * 100.0);
     }
 }
+

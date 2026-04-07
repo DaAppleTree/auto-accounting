@@ -7,7 +7,7 @@ public class Ledger {
     public static java.util.ArrayList<LedgerAccount> sortedAccounts;
     public static java.util.HashMap<String, LedgerAccount> accountsByName;
     public static java.util.HashMap<Integer, LedgerAccount> accountsById;
-    private final java.util.List<LedgerAccount> rootAccounts;
+    private final java.util.ArrayList<LedgerAccount> rootAccounts;
 
     // constructor for ledger
     public Ledger() {
@@ -17,141 +17,29 @@ public class Ledger {
             accountsById = new HashMap<>();
         }
         rootAccounts = new ArrayList<>();
-
-        // ensure root categories exist
-        createRootCategory("Asset");
-        createRootCategory("Liability");
-        createRootCategory("Equity");
-        createRootCategory("Revenue");
-        createRootCategory("Expense");
         loadFromFile();
-
-        // ensure key HST accounts are present regardless of loaded file contents
-        ensureHstAccounts();
-        normalizeTreeForRecursion();
+        rebuildTree();
     }
 
-    // ensures each subtype account has been created
-    private LedgerAccount ensureSubtypeNode(String nodeName, String type, LedgerAccount typeRoot) {
-        LedgerAccount existing = accountsByName.get(nodeName);
-        if (existing != null) {
-            if (existing == typeRoot) {
-                return existing;
-            }
-            if (existing.getParent() != typeRoot) {
-                LedgerAccount oldParent = existing.getParent();
-                if (oldParent != null) {
-                    oldParent.removeSubaccount(existing);
-                }
-                typeRoot.addSubaccount(existing);
-            }
-            return existing;
-        }
-        return getOrCreateAbstractAccount(nodeName, type, typeRoot);
-    }
-
-    // finds the subtype accounts for each parent account
-    private String inferSubtypeName(LedgerAccount account) {
-        if (account == null) {
-            return null;
-        }
-        String type = account.getType();
-        String parentName = account.getParent() != null ? account.getParent().getName() : "";
-
-        if ("Asset".equals(type)) {
-            return "Fixed Asset".equalsIgnoreCase(parentName) ? "Fixed Asset" : "Current Asset";
-        }
-        if ("Liability".equals(type)) {
-            return "Long-Term Liability".equalsIgnoreCase(parentName) ? "Long-Term Liability" : "Current Liability";
-        }
-        if ("Expense".equals(type)) {
-            return parentName.toLowerCase().contains("other") ? "Other Expense" : "Operating Expense";
-        }
-        if ("Revenue".equals(type)) {
-            return "Revenue";
-        }
-        if ("Equity".equals(type)) {
-            return "Equity";
-        }
-        return null;
-    }
-
-    // creates the subtype account for each parent account
-    private LedgerAccount resolveSubtypeParent(LedgerAccount account) {
-        if (account == null || account.getId() <= 0) {
-            return null;
-        }
-        LedgerAccount typeRoot = accountsByName.get(account.getType());
-        if (typeRoot == null) {
-            return null;
-        }
-        String subtypeName = inferSubtypeName(account);
-        if (subtypeName == null || subtypeName.equals(typeRoot.getName())) {
-            return typeRoot;
-        }
-        return ensureSubtypeNode(subtypeName, account.getType(), typeRoot);
-    }
-
-    // handles normalize tree for recursion behavior for ledger
-    private void normalizeTreeForRecursion() {
-        LedgerAccount assetRoot = getOrCreateAbstractAccount("Asset", "Asset", null);
-        ensureSubtypeNode("Current Asset", "Asset", assetRoot);
-        ensureSubtypeNode("Fixed Asset", "Asset", assetRoot);
-
-        LedgerAccount liabilityRoot = getOrCreateAbstractAccount("Liability", "Liability", null);
-        ensureSubtypeNode("Current Liability", "Liability", liabilityRoot);
-        ensureSubtypeNode("Long-Term Liability", "Liability", liabilityRoot);
-
-        LedgerAccount expenseRoot = getOrCreateAbstractAccount("Expense", "Expense", null);
-        ensureSubtypeNode("Operating Expense", "Expense", expenseRoot);
-        ensureSubtypeNode("Other Expense", "Expense", expenseRoot);
-
-        LedgerAccount equityRoot = getOrCreateAbstractAccount("Equity", "Equity", null);
-        ensureSubtypeNode("Equity", "Equity", equityRoot);
-
-        LedgerAccount revenueRoot = getOrCreateAbstractAccount("Revenue", "Revenue", null);
-        ensureSubtypeNode("Revenue", "Revenue", revenueRoot);
-
-        for (LedgerAccount account : accountsById.values()) {
-            LedgerAccount targetParent = resolveSubtypeParent(account);
-            if (targetParent == null) {
-                continue;
-            }
-            LedgerAccount oldParent = account.getParent();
-            if (oldParent != null && oldParent != targetParent) {
-                oldParent.removeSubaccount(account);
-            }
-            targetParent.addSubaccount(account);
-        }
-    }
-
-    // creates root category used by this screen
-    private LedgerAccount createRootCategory(String type) {
+    // finds or creates a top-level root account for the given type (e.g. "Asset")
+    public LedgerAccount getOrCreateRoot(String type) {
         if (accountsByName.containsKey(type)) {
             return accountsByName.get(type);
         }
-        LedgerAccount cat = new LedgerAccount(type, type);
-        rootAccounts.add(cat);
-        accountsByName.put(type, cat);
-        return cat;
+        LedgerAccount root = new LedgerAccount(type, type);
+        rootAccounts.add(root);
+        accountsByName.put(type, root);
+        return root;
     }
 
-    // add the HST accounts
-    private void ensureHstAccounts() {
-        if (!accountsByName.containsKey("HST Recoverable")) {
-            LedgerAccount assetCat = getOrCreateAbstractAccount("Asset", "Asset", null);
-            addAccount(new LedgerAccount(701, "HST Recoverable", "Asset", assetCat));
-        }
-        if (!accountsByName.containsKey("HST Payable")) {
-            LedgerAccount liabilityCat = getOrCreateAbstractAccount("Liability", "Liability", null);
-            addAccount(new LedgerAccount(702, "HST Payable", "Liability", liabilityCat));
-        }
-    }
-
-    // constructor to create an abstract account with no ID
-    public LedgerAccount getOrCreateAbstractAccount(String name, String type, LedgerAccount parent) {
+    // finds or creates a category account (e.g. "Current Asset") under the given parent
+    public LedgerAccount getOrCreateSubtype(String name, String type, LedgerAccount parent) {
         LedgerAccount existing = accountsByName.get(name);
         if (existing != null) {
+            if (existing == parent || parent == null) {
+                return existing;
+            }
+            moveUnderParent(existing, parent);
             return existing;
         }
         LedgerAccount acc = new LedgerAccount(-1, name, type, parent);
@@ -159,16 +47,95 @@ public class Ledger {
         return acc;
     }
 
-    // adds account to the current state
-    public void addAccount(LedgerAccount account) {
-        if (account == null) {
+    // returns the correct parent node for an account, creating the subtype if needed
+    private LedgerAccount getSubtypeParent(LedgerAccount account) {
+        if (account == null || account.getId() <= 0) return null;
+        LedgerAccount typeRoot = accountsByName.get(account.getType());
+        if (typeRoot == null) return null;
+
+        String type = account.getType();
+        String parentName = "";
+        if (account.getParent() != null) {
+            parentName = account.getParent().getName();
+        }
+        String subtype = null;
+
+        if (type.equals("Asset")) {
+            if (parentName.equalsIgnoreCase("Fixed Asset")) {
+                subtype = "Fixed Asset";
+            } else {
+                subtype = "Current Asset";
+            }
+        } else if (type.equals("Liability")) {
+            if (parentName.equalsIgnoreCase("Long-Term Liability")) {
+                subtype = "Long-Term Liability";
+            } else {
+                subtype = "Current Liability";
+            }
+        } else if (type.equals("Expense")) {
+            if (parentName.equalsIgnoreCase("Other Expense")) {
+                subtype = "Other Expense";
+            } else {
+                subtype = "Operating Expense";
+            }
+        }
+
+        if (subtype == null) {
+            return typeRoot;
+        }
+        return getOrCreateSubtype(subtype, type, typeRoot);
+    }
+
+    // moves an account under a new parent category when needed
+    private void moveUnderParent(LedgerAccount account, LedgerAccount parent) {
+        if (account == null || parent == null || account == parent) {
             return;
+        }
+        LedgerAccount oldParent = account.getParent();
+        if (oldParent != null && oldParent != parent) {
+            oldParent.removeSubaccount(account);
+        }
+        if (account.getParent() != parent) {
+            parent.addSubaccount(account);
+        }
+    }
+
+    // rebuilds the account tree, placing each account under the right subtype
+    private void rebuildTree() {
+        LedgerAccount asset = getOrCreateRoot("Asset");
+        LedgerAccount liability = getOrCreateRoot("Liability");
+        LedgerAccount equity = getOrCreateRoot("Equity");
+        LedgerAccount revenue = getOrCreateRoot("Revenue");
+        LedgerAccount expense = getOrCreateRoot("Expense");
+        getOrCreateSubtype("Current Asset", "Asset", asset);
+        getOrCreateSubtype("Fixed Asset", "Asset", asset);
+        getOrCreateSubtype("Current Liability", "Liability", liability);
+        getOrCreateSubtype("Long-Term Liability", "Liability", liability);
+        getOrCreateSubtype("Operating Expense", "Expense", expense);
+        getOrCreateSubtype("Other Expense", "Expense", expense);
+
+        for (LedgerAccount account : accountsById.values()) {
+            moveUnderParent(account, getSubtypeParent(account));
+        }
+
+        if (!accountsByName.containsKey("HST Recoverable")) {
+            addAccount(new LedgerAccount(701, "HST Recoverable", "Asset", asset));
+        }
+        if (!accountsByName.containsKey("HST Payable")) {
+            addAccount(new LedgerAccount(702, "HST Payable", "Liability", liability));
+        }
+    }
+
+    // adds an account to the ledger and saves the change
+    public boolean addAccount(LedgerAccount account) {
+        if (account == null) {
+            return false;
         }
 
         // handle abstract accounts with no IDs
         if (account.getId() <= 0) {
             if (accountsByName.containsKey(account.getName())) {
-                return;
+                return false;
             }
 
             // attach to parent or root
@@ -180,40 +147,29 @@ public class Ledger {
             }
             accountsByName.put(account.getName(), account);
             saveToFile();
-            return;
+            return true;
         }
 
         // leaf account with ID
         if (accountsByName.containsKey(account.getName())) {
-            return;
+            return false;
         } else if (accountsById.containsKey(account.getId())) {
-            return;
+            return false;
         }
 
-        int insertPos = findPosition(account.getId());
-        if (insertPos < sortedAccounts.size()) {
-            sortedAccounts.add(insertPos, account);
-        } else {
-            sortedAccounts.add(account);
-        }
+        int insertPos = insertIndex(account.getId());
+        sortedAccounts.add(insertPos, account);
 
         accountsByName.put(account.getName(), account);
         accountsById.put(account.getId(), account);
 
-        // also if this account has a parent, register under it
-        LedgerAccount targetParent = resolveSubtypeParent(account);
-        if (targetParent != null) {
-            LedgerAccount oldParent = account.getParent();
-            if (oldParent != null && oldParent != targetParent) {
-                oldParent.removeSubaccount(account);
-            }
-            targetParent.addSubaccount(account);
-        }
+        moveUnderParent(account, getSubtypeParent(account));
         saveToFile();
+        return true;
     }
 
-    // finds position from current collections
-    private int findPosition(int targetId) {
+    // binary search: returns the index where targetId should be inserted
+    private int insertIndex(int targetId) {
         int left = 0;
         int right = sortedAccounts.size() - 1;
         
@@ -232,28 +188,37 @@ public class Ledger {
         return left;
     }
 
-    // finds accounts by prefix
-    public List<LedgerAccount> findAccountsByPrefix(String prefix) {
+    // searches accounts by ID prefix (numeric) or name prefix (text)
+    public ArrayList<LedgerAccount> searchAccounts(String prefix) {
         if (prefix == null || prefix.isEmpty()) {
             return new ArrayList<>();
         }
         
         // first try numeric search by ID prefix
         try {
-            int multiplier = (int) Math.pow(10, 3 - prefix.length());
-            int minId = Integer.parseInt(prefix) * multiplier;
-            int maxId = minId + multiplier - 1;
-            
-            int startIndex = findFirstIndex(minId);
-            int endIndex = findLastIndex(maxId);
-            
-            if (startIndex <= endIndex && startIndex >= 0 && endIndex < sortedAccounts.size()) {
-                return sortedAccounts.subList(startIndex, endIndex + 1);
+            int prefixNum = Integer.parseInt(prefix);
+            int scale = (int) Math.pow(10, Math.max(0, 3 - prefix.length()));
+            int minId = prefixNum * scale;
+            int maxId = minId + scale - 1;
+
+            ArrayList<LedgerAccount> numericMatches = new ArrayList<>();
+            int start = insertIndex(minId);
+            for (int i = start; i < sortedAccounts.size(); i++) {
+                LedgerAccount acc = sortedAccounts.get(i);
+                if (acc.getId() > maxId) {
+                    break;
+                }
+                if (String.valueOf(acc.getId()).startsWith(prefix)) {
+                    numericMatches.add(acc);
+                }
+            }
+            if (!numericMatches.isEmpty()) {
+                return numericMatches;
             }
         } catch (NumberFormatException e) {}
         
         // if not numeric or numeric search returned nothing, try searching for the name
-        List<LedgerAccount> matches = new ArrayList<>();
+        ArrayList<LedgerAccount> matches = new ArrayList<>();
         String lower = prefix.toLowerCase();
         for (LedgerAccount acc : sortedAccounts) {
             if (acc.getName().toLowerCase().startsWith(lower)) {
@@ -261,48 +226,6 @@ public class Ledger {
             }
         }
         return matches;
-    }
-
-    // finds first index from current collections
-    private int findFirstIndex(int targetId) {
-        int left = 0;
-        int right = sortedAccounts.size() - 1;
-        int result = -1;
-        
-        while (left <= right) {
-            int mid = left + (right - left) / 2;
-            int midId = sortedAccounts.get(mid).getId();
-            
-            if (midId >= targetId) {
-                result = mid;
-                right = mid - 1;
-            } else {
-                left = mid + 1;
-            }
-        }
-        
-        return result;
-    }
-
-    // finds last index from current collections
-    private int findLastIndex(int targetId) {
-        int left = 0;
-        int right = sortedAccounts.size() - 1;
-        int result = -1;
-        
-        while (left <= right) {
-            int mid = left + (right - left) / 2;
-            int midId = sortedAccounts.get(mid).getId();
-            
-            if (midId <= targetId) {
-                result = mid;
-                left = mid + 1;
-            } else {
-                right = mid - 1;
-            }
-        }
-        
-        return result;
     }
 
     // returns account by name
@@ -320,15 +243,9 @@ public class Ledger {
         return accountsByName.keySet();
     }
 
-    // returns all accounts
+    // returns all accounts (leaf accounts with IDs only)
     public ArrayList<LedgerAccount> getAllAccounts() {
-
-        // return only leaf accounts with IDs
-        ArrayList<LedgerAccount> list = new ArrayList<>();
-        for (LedgerAccount acc : accountsById.values()) {
-            list.add(acc);
-        }
-        return list;
+        return new ArrayList<>(accountsById.values());
     }
 
     // returns all accounts sorted by ID
@@ -336,7 +253,7 @@ public class Ledger {
         return new ArrayList<>(sortedAccounts);
     }
 
-    // updates from journal for consistency
+    // recalculates account balances from the journal
     public void updateFromJournal(Journal journal) {
         for (LedgerAccount a : accountsById.values()) {
             a.reset();
@@ -355,8 +272,8 @@ public class Ledger {
         }
     }
 
-    // recursive traversal helper for tree nodes
-    private double sumBalancesRecursive(LedgerAccount node, Set<LedgerAccount> visiting) {
+    // adds up balances across an account and all its subaccounts (no cycles)
+    private double sumBalances(LedgerAccount node, Set<LedgerAccount> visiting) {
         if (node == null || visiting.contains(node)) {
             return 0;
         }
@@ -366,19 +283,19 @@ public class Ledger {
             total += node.getBalance();
         }
         for (LedgerAccount child : node.getSubaccounts()) {
-            total += sumBalancesRecursive(child, visiting);
+            total += sumBalances(child, visiting);
         }
         visiting.remove(node);
         return total;
     }
 
-    // account total by any node name
-    public double getRecursiveTotalByName(String accountName) {
+    // returns the total balance for an account group by name (includes subaccounts)
+    public double getTotalByName(String accountName) {
         LedgerAccount node = accountsByName.get(accountName);
         if (node == null) {
             return 0;
         }
-        return sumBalancesRecursive(node, new HashSet<>());
+        return sumBalances(node, new HashSet<>());
     }
 
     // class for a balance at a particular date, used for graphing history
@@ -393,26 +310,24 @@ public class Ledger {
         }
     }
 
-     // compute the running balance history for the account with the given ID, based on all transactions in the journal
-    public List<BalancePoint> getBalanceHistory(int accountId, Journal journal) {
+    // returns the running balance history for an account, sorted by date
+    public ArrayList<BalancePoint> getBalanceHistory(int accountId, Journal journal) {
         LedgerAccount base = accountsById.get(accountId);
         if (base == null) {
             return new ArrayList<>();
         }
-        List<Transaction> txns = new ArrayList<>(journal.getAllTransactions());
-        txns.sort((a,b) -> a.getDate().compareTo(b.getDate()));
-
-        // use a temporary account to accumulate balance according to normal side
-        LedgerAccount temp = new LedgerAccount(base.getId(), base.getName(), base.getType());
-        List<BalancePoint> history = new ArrayList<>();
-        for (Transaction t : txns) {
+        
+        // tracks the running balance as each matching transaction is processed
+        LedgerAccount runningAccount = new LedgerAccount(base.getId(), base.getName(), base.getType());
+        ArrayList<BalancePoint> history = new ArrayList<>();
+        for (Transaction t : journal.getAllTransactions()) {
             if (t.getDebitAccount() == accountId) {
-                temp.postDebit(t.getAmount());
+                runningAccount.postDebit(t.getAmount());
             }
             if (t.getCreditAccount() == accountId) {
-                temp.postCredit(t.getAmount());
+                runningAccount.postCredit(t.getAmount());
             }
-            history.add(new BalancePoint(t.getDate(), temp.getBalance()));
+            history.add(new BalancePoint(t.getDate(), runningAccount.getBalance()));
         }
         return history;
     }
@@ -426,8 +341,8 @@ public class Ledger {
         return trialBalance;
     }
 
-    // removes account from the current state
-    public boolean removeAccount(int id) {
+    // removes an account from the ledger and saves the change
+    public void removeAccount(int id) {
         LedgerAccount account = accountsById.get(id);
         if (account != null) {
             LedgerAccount parent = account.getParent();
@@ -438,12 +353,10 @@ public class Ledger {
             accountsByName.remove(account.getName());
             sortedAccounts.remove(account);
             saveToFile();
-            return true;
         }
-        return false;
     }
 
-    // clears current input or stored data.
+    // removes all saved accounts from the ledger
     public void clear() {
         accountsById.clear();
         accountsByName.clear();
@@ -451,11 +364,14 @@ public class Ledger {
         saveToFile();
     }
 
-    // saves to file in storage
+    // saves all accounts to the CSV file
     private void saveToFile() {
         try (java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.FileWriter(ACCOUNT_FILE))) {
             for (LedgerAccount acc : accountsByName.values()) {
-                String parentName = acc.getParent() != null ? acc.getParent().getName() : "";
+                String parentName = "";
+                if (acc.getParent() != null) {
+                    parentName = acc.getParent().getName();
+                }
                 pw.printf("%d,%s,%s,%s\n", acc.getId(), acc.getName(), acc.getType(), parentName);
             }
         } catch (java.io.IOException e) {
@@ -464,18 +380,18 @@ public class Ledger {
         }
     }
 
-    // loads from file from storage
+    // loads saved accounts from the CSV file
     private void loadFromFile() {
         java.io.File f = new java.io.File(ACCOUNT_FILE);
         if (!f.exists()) return;
         try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader(f))) {
             String line;
-            java.util.List<String[]> rows = new java.util.ArrayList<>();
+            java.util.ArrayList<String[]> rows = new java.util.ArrayList<>();
             while ((line = br.readLine()) != null) {
                 String[] parts = line.split(",", -1);
                 if (parts.length >= 4) rows.add(parts);
             }
-            java.util.Map<String, LedgerAccount> temp = new java.util.HashMap<>();
+            java.util.Map<String, LedgerAccount> loadedAccounts = new java.util.HashMap<>();
             for (String[] parts : rows) {
                 int id = Integer.parseInt(parts[0]);
                 String name = parts[1];
@@ -483,14 +399,14 @@ public class Ledger {
                 LedgerAccount acc;
                 if (id > 0) acc = new LedgerAccount(id, name, type);
                 else acc = new LedgerAccount(-1, name, type);
-                temp.put(name, acc);
+                loadedAccounts.put(name, acc);
             }
             for (String[] parts : rows) {
                 String name = parts[1];
                 String parentName = parts[3];
-                LedgerAccount acc = temp.get(name);
+                LedgerAccount acc = loadedAccounts.get(name);
                 if (parentName != null && !parentName.isEmpty()) {
-                    LedgerAccount parent = temp.get(parentName);
+                    LedgerAccount parent = loadedAccounts.get(parentName);
                     if (parent != null) {
                         acc.setParent(parent);
                         parent.addSubaccount(acc);
@@ -504,3 +420,4 @@ public class Ledger {
         }
     }
 }
+

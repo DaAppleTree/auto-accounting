@@ -1,4 +1,4 @@
-import java.util.List;
+import java.util.ArrayList;
 
 // class for creating an income statement
 public class IncomeStatement extends FinancialRecord {
@@ -10,8 +10,8 @@ public class IncomeStatement extends FinancialRecord {
     @Override
     // builds text for output or rendering
     protected void buildText(StringBuilder sb) {
-        List<LedgerAccount> revenues = accountsByType("Revenue");
-        List<LedgerAccount> expenses = accountsByType("Expense");
+        ArrayList<LedgerAccount> revenues = accountsByType("Revenue");
+        ArrayList<LedgerAccount> expenses = accountsByType("Expense");
 
         // 2D arrays for storing revenue and expense accounts
         Object[][] revenueRows = buildRows(revenues);
@@ -43,3 +43,4 @@ public class IncomeStatement extends FinancialRecord {
     }
 
 }
+

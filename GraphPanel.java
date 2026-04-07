@@ -4,19 +4,19 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.geom.AffineTransform;
-import java.util.List;
+import java.util.ArrayList;
 import javax.swing.JPanel;
 
 // class for creating a graph panel analyzing account balance over time
 public class GraphPanel extends JPanel {
-    private final List<Ledger.BalancePoint> history;
+    private final ArrayList<Ledger.BalancePoint> history;
     private long minEpoch;
     private long maxEpoch;
     private double minBal;
     private double maxBal;
 
     // constructor for graph panel
-    public GraphPanel(List<Ledger.BalancePoint> history) {
+    public GraphPanel(ArrayList<Ledger.BalancePoint> history) {
         this.history = history;
         computeBounds();
     }
@@ -145,3 +145,4 @@ public class GraphPanel extends JPanel {
         }
     }
 }
+

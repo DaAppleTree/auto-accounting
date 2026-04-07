@@ -4,15 +4,15 @@ import java.time.LocalDate;
 public class Transaction {
     private static int nextGroupId = 1;
 
-    // handles group ID behavior for transaction
-    public static int allocateGroupId() {
+    // returns the next available group ID and advances the counter
+    public static int nextGroupId() {
         return nextGroupId++;
     }
 
-    // finds the next group ID for a transaction
-    public static void ensureNextGroupIdAtLeast(int candidateNext) {
-        if (candidateNext > nextGroupId) {
-            nextGroupId = candidateNext;
+    // makes sure the group ID counter is at least as high as the given value
+    public static void setMinGroupId(int minValue) {
+        if (minValue > nextGroupId) {
+            nextGroupId = minValue;
         }
     }
     private LocalDate date;
@@ -25,7 +25,7 @@ public class Transaction {
     // pointer to next transaction
     private Transaction next;
 
-    // constructor using LocalDate
+    // constructor for Transaction objects
     public Transaction(LocalDate date, String description, int debitAccount, int creditAccount, double amount) {
         this(date, description, debitAccount, creditAccount, amount, 0);
     }

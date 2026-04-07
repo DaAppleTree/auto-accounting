@@ -47,7 +47,6 @@ public class TransactionList{
             }
             this.size++;
         }
-
     }
     
     // removes a transaction from the linked list
@@ -67,8 +66,8 @@ public class TransactionList{
     }
 
     // converts linked list to a list
-    public java.util.List<Transaction> toList() {
-        java.util.List<Transaction> list = new java.util.ArrayList<>();
+    public java.util.ArrayList<Transaction> toList() {
+        java.util.ArrayList<Transaction> list = new java.util.ArrayList<>();
         Transaction current = root;
         while (current != null) {
             list.add(current);
@@ -83,3 +82,4 @@ public class TransactionList{
         size = 0;
     }
 }
+

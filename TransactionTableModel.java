@@ -1,7 +1,6 @@
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import javax.swing.table.AbstractTableModel;
 
@@ -9,9 +8,9 @@ import javax.swing.table.AbstractTableModel;
 public class TransactionTableModel extends AbstractTableModel {
     private final String[] columns = {"Date", "Particulars", "Account #", "Debit", "Credit"};
     private final DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-    private final List<String[]> rows;
-    private final List<Integer> journalIndexes;
-    private final List<Integer> selectionKeys;
+    private final ArrayList<String[]> rows;
+    private final ArrayList<Integer> journalIndexes;
+    private final ArrayList<Integer> selectionKeys;
     private final Ledger ledger;
 
     // constructor for a transaction table
@@ -22,6 +21,7 @@ public class TransactionTableModel extends AbstractTableModel {
         this.selectionKeys = new ArrayList<>();
     }
 
+    // adds one visible row to the journal table and tracks its source entry
     private void addRow(String date, String particulars, String accountNumber, String debit, String credit, int journalIndex, int selectionKey) {
         rows.add(new String[]{date, particulars, accountNumber, debit, credit});
         journalIndexes.add(journalIndex);
@@ -29,7 +29,7 @@ public class TransactionTableModel extends AbstractTableModel {
     }
 
     // updates transactions for this component
-    public void setTransactions(List<Transaction> list) {
+    public void setTransactions(ArrayList<Transaction> list) {
         rows.clear();
         journalIndexes.clear();
         selectionKeys.clear();
@@ -45,10 +45,20 @@ public class TransactionTableModel extends AbstractTableModel {
         for (int i = 0; i < list.size(); i++) {
             Transaction t = list.get(i);
             int groupId = t.getGroupId();
-            String key = groupId != 0 ? "G:" + groupId : "S:" + i;
+            String key;
+            if (groupId != 0) {
+                key = "G:" + groupId;
+            } else {
+                key = "S:" + i;
+            }
 
             if (!entryDates.containsKey(key)) {
-                int selectionKey = groupId != 0 ? groupId : -(i + 1);
+                int selectionKey;
+                if (groupId != 0) {
+                    selectionKey = groupId;
+                } else {
+                    selectionKey = -(i + 1);
+                }
                 entryDates.put(key, fmt.format(t.getDate()));
                 entryDescriptions.put(key, t.getDescription());
                 entryJournalIndexes.put(key, i);
@@ -82,8 +92,19 @@ public class TransactionTableModel extends AbstractTableModel {
             for (Map.Entry<Integer, Double> debitLine : debits.entrySet()) {
                 int accountId = debitLine.getKey();
                 LedgerAccount acc = ledger.getAccountById(accountId);
-                String accountName = acc != null ? acc.getName() : ("Account " + accountId);
-                addRow(firstRow ? date : "", accountName, String.valueOf(accountId), String.format("$%.2f", debitLine.getValue()), "", journalIndex, selectionKey);
+                String accountName;
+                if (acc != null) {
+                    accountName = acc.getName();
+                } else {
+                    accountName = "Account " + accountId;
+                }
+                String rowDate;
+                if (firstRow) {
+                    rowDate = date;
+                } else {
+                    rowDate = "";
+                }
+                addRow(rowDate, accountName, String.valueOf(accountId), String.format("$%.2f", debitLine.getValue()), "", journalIndex, selectionKey);
                 firstRow = false;
             }
 
@@ -91,12 +112,23 @@ public class TransactionTableModel extends AbstractTableModel {
             for (Map.Entry<Integer, Double> creditLine : credits.entrySet()) {
                 int accountId = creditLine.getKey();
                 LedgerAccount acc = ledger.getAccountById(accountId);
-                String accountName = acc != null ? acc.getName() : ("Account " + accountId);
+                String accountName;
+                if (acc != null) {
+                    accountName = acc.getName();
+                } else {
+                    accountName = "Account " + accountId;
+                }
                 addRow("", "    " + accountName, String.valueOf(accountId), "", String.format("$%.2f", creditLine.getValue()), journalIndex, selectionKey);
             }
 
             // description line last
-            addRow("", description == null ? "" : description, "", "", "", journalIndex, selectionKey);
+            String descOrEmpty;
+            if (description == null) {
+                descOrEmpty = "";
+            } else {
+                descOrEmpty = description;
+            }
+            addRow("", descOrEmpty, "", "", "", journalIndex, selectionKey);
         }
 
         fireTableDataChanged();
@@ -148,3 +180,4 @@ public class TransactionTableModel extends AbstractTableModel {
         return false;
     }
 }
+

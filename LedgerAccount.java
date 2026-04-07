@@ -1,5 +1,4 @@
-
-// ledgeraccount manages this part of the accounting application.
+// represents a single account in the ledger (e.g. Cash, Accounts Receivable)
 public class LedgerAccount {
     private int id; // -1 for abstract accounts without ID
     private String name;

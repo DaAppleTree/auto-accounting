@@ -1,4 +1,4 @@
-import java.util.List;
+import java.util.ArrayList;
 
 // class for creating a balance sheet
 public class BalanceSheet extends FinancialRecord {
@@ -10,9 +10,9 @@ public class BalanceSheet extends FinancialRecord {
     @Override
     // builds text for output or rendering
     protected void buildText(StringBuilder sb) {
-        List<LedgerAccount> assets = accountsByType("Asset");
-        List<LedgerAccount> liabilities = accountsByType("Liability");
-        List<LedgerAccount> equity = accountsByType("Equity");
+        ArrayList<LedgerAccount> assets = accountsByType("Asset");
+        ArrayList<LedgerAccount> liabilities = accountsByType("Liability");
+        ArrayList<LedgerAccount> equity = accountsByType("Equity");
 
         // 2D arrays for storing asset, liability, and equity accounts
         Object[][] assetRows = buildRows(assets);
@@ -57,3 +57,4 @@ public class BalanceSheet extends FinancialRecord {
     }
 
 }
+

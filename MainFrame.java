@@ -27,11 +27,11 @@ public class MainFrame extends JFrame {
 
         // create default accounts
         if (ledger.getAccountByName("Cash") == null) {
-            LedgerAccount assetCat = ledger.getOrCreateAbstractAccount("Asset", "Asset", null);
-            LedgerAccount liabilityCat = ledger.getOrCreateAbstractAccount("Liability", "Liability", null);
-            LedgerAccount equityCat = ledger.getOrCreateAbstractAccount("Equity", "Equity", null);
-            LedgerAccount revenueCat = ledger.getOrCreateAbstractAccount("Revenue", "Revenue", null);
-            LedgerAccount expenseCat = ledger.getOrCreateAbstractAccount("Expense", "Expense", null);
+            LedgerAccount assetCat = ledger.getOrCreateRoot("Asset");
+            LedgerAccount liabilityCat = ledger.getOrCreateRoot("Liability");
+            LedgerAccount equityCat = ledger.getOrCreateRoot("Equity");
+            LedgerAccount revenueCat = ledger.getOrCreateRoot("Revenue");
+            LedgerAccount expenseCat = ledger.getOrCreateRoot("Expense");
 
             ledger.addAccount(new LedgerAccount(101, "Cash", "Asset", assetCat));
             ledger.addAccount(new LedgerAccount(102, "Accounts Receivable", "Asset", assetCat));

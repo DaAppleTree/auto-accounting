@@ -4,7 +4,7 @@ import javax.swing.table.AbstractTableModel;
 
 // class for creating the tables on the ledger page
 public class LedgerTableModel extends AbstractTableModel {
-    private final List<LedgerAccount> data;
+    private final ArrayList<LedgerAccount> data;
     private static final String[] COLUMNS = {"ID","Name","Type","Debit Total","Credit Total","Balance"};
 
     // constructor for the ledger table
@@ -13,7 +13,7 @@ public class LedgerTableModel extends AbstractTableModel {
     }
 
     // updates accounts for this component
-    public void setAccounts(List<LedgerAccount> list) {
+    public void setAccounts(ArrayList<LedgerAccount> list) {
         data.clear();
         data.addAll(list);
         fireTableDataChanged();
@@ -56,17 +56,22 @@ public class LedgerTableModel extends AbstractTableModel {
         boolean displayOnly = a.getId() <= 0;
         switch (col) {
             case 0:
-                return displayOnly ? "" : a.getId();
+                if (displayOnly) return "";
+                return a.getId();
             case 1:
                 return a.getName();
             case 2:
-                return displayOnly ? "" : a.getType();
+                if (displayOnly) return "";
+                return a.getType();
             case 3:
-                return displayOnly ? "" : String.format("$%.2f", a.getDebitTotal());
+                if (displayOnly) return "";
+                return String.format("$%.2f", a.getDebitTotal());
             case 4:
-                return displayOnly ? "" : String.format("$%.2f", a.getCreditTotal());
+                if (displayOnly) return "";
+                return String.format("$%.2f", a.getCreditTotal());
             case 5:
-                return displayOnly ? "" : formatCurrency(a.getBalance());
+                if (displayOnly) return "";
+                return formatCurrency(a.getBalance());
         }
         return null;
     }
@@ -79,3 +84,4 @@ public class LedgerTableModel extends AbstractTableModel {
         return String.format("$%.2f", value);
     }
 }
+

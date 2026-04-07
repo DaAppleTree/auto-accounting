@@ -5,7 +5,6 @@
 -1,Equity,Equity,
 -1,Current Asset,Asset,Asset
 -1,Current Liability,Liability,Liability
-102,Accounts Receivable,Asset,Current Asset
 101,Cash,Asset,Current Asset
 401,Service Revenue,Revenue,Revenue
 201,Accounts Payable,Liability,Current Liability
